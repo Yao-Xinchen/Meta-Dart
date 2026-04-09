@@ -1,0 +1,62 @@
+cmake_minimum_required(VERSION 3.16)
+project(loader CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# ── OpenCV ────────────────────────────────────────────────────────────────────
+find_package(OpenCV REQUIRED)
+
+# ── DynamixelSDK sources ──────────────────────────────────────────────────────
+set(DXL_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../dynamixel/DynamixelSDK/c++")
+
+file(GLOB DXL_SDK_SRCS
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/group_bulk_read.cpp"
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/group_bulk_write.cpp"
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/group_sync_read.cpp"
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/group_sync_write.cpp"
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/packet_handler.cpp"
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/port_handler.cpp"
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/port_handler_linux.cpp"
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/protocol1_packet_handler.cpp"
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/protocol2_packet_handler.cpp"
+    "${DXL_SDK_ROOT}/src/dynamixel_sdk/group_handler.cpp"
+)
+
+# ── DynamixelWorkbench toolbox sources ────────────────────────────────────────
+set(DXL_WB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../dynamixel/dynamixel-workbench/dynamixel_workbench_toolbox")
+
+file(GLOB DXL_WB_SRCS
+    "${DXL_WB_ROOT}/src/dynamixel_workbench_toolbox/*.cpp"
+)
+
+# ── Main executable ───────────────────────────────────────────────────────────
+add_executable(loader
+    src/main.cpp
+    src/camera.cpp
+    src/vision.cpp
+    src/kinematics.cpp
+    src/arm.cpp
+    src/decision.cpp
+    ${DXL_SDK_SRCS}
+    ${DXL_WB_SRCS}
+)
+
+target_include_directories(loader PRIVATE
+    include
+    ${OpenCV_INCLUDE_DIRS}
+    ${DXL_SDK_ROOT}/include/dynamixel_sdk
+    ${DXL_WB_ROOT}/include
+    ${DXL_WB_ROOT}/include/dynamixel_workbench_toolbox
+    # DynamixelWorkbench.h shim lives in src/
+    ${DXL_WB_ROOT}/src
+    ${DXL_SDK_ROOT}/include
+)
+
+target_link_libraries(loader PRIVATE
+    ${OpenCV_LIBS}
+    pthread
+)
+
+target_compile_options(loader PRIVATE -Wall -Wextra -O2)
