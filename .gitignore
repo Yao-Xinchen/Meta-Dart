@@ -1,3 +1,14 @@
 build/
 compile_commands.json
 .cache/
+.venv/
+.uv-cache/
+python/yolo/__pycache__/
+python/yolo/runs/
+python/yolo/weights/
+python/yolo/.config/
+python/yolo/yolo*.pt
+dataset/
+.claude/
+
+ 

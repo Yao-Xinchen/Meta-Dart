@@ -1,0 +1,6 @@
+path: /home/phi5090ii/NYX/senior-design/Meta-Dart/dataset/dart_dataset
+train: images/train
+val: images/val
+test: images/test
+names:
+  0: dart
