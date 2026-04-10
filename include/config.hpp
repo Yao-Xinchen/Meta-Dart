@@ -43,3 +43,17 @@ constexpr int DECISION_LOOP_HZ     = 10;   // decision thread rate
 
 // Goal-reached threshold [rad]
 constexpr float GOAL_REACHED_THRESH = 0.02f;
+
+// ── Vision / ONNX ─────────────────────────────────────────────────────────────
+constexpr const char* ONNX_MODEL_PATH     = "models/best.onnx";
+constexpr int         YOLO_INPUT_W        = 640;
+constexpr int         YOLO_INPUT_H        = 640;
+constexpr float       CONF_THRESHOLD      = 0.40f;
+
+// Camera intrinsics — replace with cv::calibrateCamera values (pixels, native res)
+constexpr float CAM_FX             = 600.0f;
+constexpr float CAM_FY             = 600.0f;
+constexpr float CAM_CX             = 320.0f;   // ≈ width  / 2
+constexpr float CAM_CY             = 240.0f;   // ≈ height / 2
+constexpr float CAM_HEIGHT_M       = 0.50f;    // camera height above dart surface [m]
+constexpr float DART_REST_HEIGHT_M = 0.00f;    // dart z in world frame [m]

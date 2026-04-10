@@ -8,6 +8,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # ── OpenCV ────────────────────────────────────────────────────────────────────
 find_package(OpenCV REQUIRED)
 
+# ── ONNX Runtime ──────────────────────────────────────────────────────────────
+set(ORT_ROOT "$ENV{HOME}/Applications/onnxruntime"
+    CACHE PATH "ONNX Runtime install root (contains include/ and lib/)")
+if(NOT EXISTS "${ORT_ROOT}/include/onnxruntime_cxx_api.h")
+    message(FATAL_ERROR "ONNX Runtime not found at ${ORT_ROOT}.")
+endif()
+
 # ── DynamixelSDK sources ──────────────────────────────────────────────────────
 set(DXL_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../dynamixel/DynamixelSDK/c++")
 
@@ -52,11 +59,15 @@ target_include_directories(loader PRIVATE
     # DynamixelWorkbench.h shim lives in src/
     ${DXL_WB_ROOT}/src
     ${DXL_SDK_ROOT}/include
+    ${ORT_ROOT}/include
 )
 
 target_link_libraries(loader PRIVATE
     ${OpenCV_LIBS}
     pthread
+    ${ORT_ROOT}/lib/libonnxruntime.so
 )
+
+target_link_options(loader PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
 
 target_compile_options(loader PRIVATE -Wall -Wextra -O2)
