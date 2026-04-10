@@ -8,8 +8,6 @@ This folder contains the Python-side YOLO tooling for the dart dataset. The curr
 - `play.py`: runs prediction on images, folders, video, or streams
 - `model.py`: configures local Ultralytics paths and loads the model
 - `dataset.py`: builds the dataset YAML from a dataset root
-- `convert_cvat_xml_to_yolo.py`: converts CVAT XML boxes to normal detect labels
-- `convert_cvat_xml_to_yolo_obb.py`: converts CVAT XML rotated boxes to YOLO OBB labels
 - `visualize_yolo_obb.py`: draws OBB labels on images
 - `refine_labels.py`: image-processing helper for rough label refinement
 - `requirements.txt`: Python dependencies
@@ -20,21 +18,21 @@ From the repository root:
 
 ```bash
 cd .
-UV_CACHE_DIR=.uv-cache uv venv .venv
-source .venv/bin/activate
+UV_CACHE_DIR=.uv-cache uv venv yolo
+source yolo/bin/activate
 ```
 
 Install dependencies:
 
 ```bash
-UV_CACHE_DIR=.uv-cache uv pip install --python .venv/bin/python -r python/yolo/requirements.txt
+UV_CACHE_DIR=.uv-cache uv pip install --python yolo/bin/python -r python/yolo/requirements.txt
 ```
 
 If you want the CPU build of PyTorch:
 
 ```bash
-UV_CACHE_DIR=.uv-cache uv pip install --python .venv/bin/python --index-url https://download.pytorch.org/whl/cpu torch torchvision
-UV_CACHE_DIR=.uv-cache uv pip install --python .venv/bin/python ultralytics
+UV_CACHE_DIR=.uv-cache uv pip install --python yolo/bin/python --index-url https://download.pytorch.org/whl/cpu torch torchvision
+UV_CACHE_DIR=.uv-cache uv pip install --python yolo/bin/python ultralytics
 ```
 
 ## Dataset Layout
@@ -73,23 +71,6 @@ Recommended OBB weights:
 Do not use `yolov8n.pt` with OBB labels.
 
 ## Training
-
-YOLO11 OBB on CPU:
-
-```bash
-cd python/yolo
-python train.py \
-  --data-root ../../dataset/dart_dataset \
-  --classes dart \
-  --weights yolo11n-obb.pt \
-  --epochs 100 \
-  --imgsz 640 \
-  --batch 8 \
-  --device cpu \
-  --project runs \
-  --name dart_yolo11_obb \
-  --patience 30
-```
 
 YOLOv8 OBB on GPU:
 
