@@ -45,6 +45,7 @@ constexpr int DECISION_LOOP_HZ     = 10;   // decision thread rate
 constexpr float GOAL_REACHED_THRESH = 0.02f;
 
 // ── Vision / ONNX ─────────────────────────────────────────────────────────────
+constexpr bool        VISION_TIMING_DEBUG  = false;  // print per-frame timing stats
 constexpr const char* ONNX_MODEL_PATH     = "models/best.onnx";
 constexpr int         YOLO_INPUT_W        = 640;
 constexpr int         YOLO_INPUT_H        = 640;

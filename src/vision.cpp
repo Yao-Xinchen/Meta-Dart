@@ -28,7 +28,7 @@ VisionModule::VisionModule(TripleBuffer<Frame>& camera_buf)
     std::fclose(f);
 
     Ort::SessionOptions opts;
-    opts.SetIntraOpNumThreads(1);  // dedicated loop thread; avoid competing with arm
+    opts.SetIntraOpNumThreads(0);  // 0 = let ORT choose based on hardware
     opts.SetGraphOptimizationLevel(GraphOptimizationLevel::ORT_ENABLE_ALL);
 
     try {
@@ -138,11 +138,10 @@ void VisionModule::loop()
     Frame     frame;
     Detection det;
 
-    // Timing stats (printed every N_STAT frames)
+    // Timing stats (printed every N_STAT frames, controlled by VISION_TIMING_DEBUG)
     constexpr int N_STAT = 30;
     int    stat_n      = 0;
     double sum_pre     = 0, sum_infer = 0, sum_vis = 0, sum_total = 0;
-    auto   t_last_iter = Clock::now();
 
     auto ms = [](auto dur) {
         return std::chrono::duration<double, std::milli>(dur).count();
@@ -228,7 +227,7 @@ void VisionModule::loop()
         sum_vis   += dt_vis;
         sum_total += dt_total;
 
-        if (++stat_n == N_STAT) {
+        if (VISION_TIMING_DEBUG && ++stat_n == N_STAT) {
             double n = N_STAT;
             std::printf("[Vision timing over %d frames]  "
                         "pre=%.1fms  infer=%.1fms  vis=%.1fms  "
