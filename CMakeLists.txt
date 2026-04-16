@@ -16,7 +16,7 @@ if(NOT EXISTS "${ORT_ROOT}/include/onnxruntime_cxx_api.h")
 endif()
 
 # ── DynamixelSDK sources ──────────────────────────────────────────────────────
-set(DXL_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../dynamixel/DynamixelSDK/c++")
+set(DXL_SDK_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/DynamixelSDK/c++")
 
 file(GLOB DXL_SDK_SRCS
     "${DXL_SDK_ROOT}/src/dynamixel_sdk/group_bulk_read.cpp"
@@ -32,7 +32,7 @@ file(GLOB DXL_SDK_SRCS
 )
 
 # ── DynamixelWorkbench toolbox sources ────────────────────────────────────────
-set(DXL_WB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../dynamixel/dynamixel-workbench/dynamixel_workbench_toolbox")
+set(DXL_WB_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/dynamixel-workbench/dynamixel_workbench_toolbox")
 
 file(GLOB DXL_WB_SRCS
     "${DXL_WB_ROOT}/src/dynamixel_workbench_toolbox/*.cpp"
