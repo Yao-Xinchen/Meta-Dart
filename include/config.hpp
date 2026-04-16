@@ -4,7 +4,7 @@
 
 // ── Serial / Dynamixel ────────────────────────────────────────────────────────
 constexpr const char* DXL_PORT     = "/dev/ttyUSB0";
-constexpr int         DXL_BAUD     = 57600;
+constexpr int         DXL_BAUD     = 1000000;
 
 // Motor IDs (OpenManipulator-X defaults)
 constexpr uint8_t DXL_ID_J1       = 11;   // base rotation
@@ -33,8 +33,15 @@ constexpr float J3_MIN = -0.873f,  J3_MAX =  1.571f;
 constexpr float J4_MIN = -1.745f,  J4_MAX =  2.094f;
 
 // Gripper open/close positions [rad]
-constexpr float GRIPPER_OPEN      = -0.010f;
-constexpr float GRIPPER_CLOSED    =  0.010f;
+// Gripper positions in metres — converted to raw encoder units at runtime
+// using the same scale/offset as the OpenManipulator ros2_control plugin.
+constexpr float GRIPPER_OPEN      =  0.019f;   // m
+constexpr float GRIPPER_CLOSED    = -0.010f;   // m
+
+// ros2_control unit-info parameters for motor ID 15
+constexpr float GRIPPER_SCALE     =  0.000017626621790f;  // m / encoder_unit
+constexpr float GRIPPER_OFFSET    = -0.036099321f;         // m
+constexpr int32_t GRIPPER_CURRENT =  200;                  // Goal_Current raw value
 
 // ── Control loop timing ───────────────────────────────────────────────────────
 constexpr int ARM_LOOP_HZ          = 50;   // arm control thread rate

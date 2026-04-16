@@ -71,3 +71,83 @@ target_link_libraries(loader PRIVATE
 target_link_options(loader PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
 
 target_compile_options(loader PRIVATE -Wall -Wextra -O2)
+
+# ── Arm hardware test ─────────────────────────────────────────────────────────
+add_executable(test_arm
+    test/test_arm.cpp
+    src/arm.cpp
+    src/kinematics.cpp
+    ${DXL_SDK_SRCS}
+    ${DXL_WB_SRCS}
+)
+
+target_include_directories(test_arm PRIVATE
+    include
+    ${OpenCV_INCLUDE_DIRS}
+    ${DXL_SDK_ROOT}/include/dynamixel_sdk
+    ${DXL_WB_ROOT}/include
+    ${DXL_WB_ROOT}/include/dynamixel_workbench_toolbox
+    ${DXL_WB_ROOT}/src
+    ${DXL_SDK_ROOT}/include
+)
+
+target_link_libraries(test_arm PRIVATE pthread)
+
+target_compile_options(test_arm PRIVATE -Wall -Wextra -O2)
+
+# ── Motor scan utility ────────────────────────────────────────────────────────
+add_executable(scan_motors
+    test/scan_motors.cpp
+    ${DXL_SDK_SRCS}
+)
+
+target_include_directories(scan_motors PRIVATE
+    ${DXL_SDK_ROOT}/include/dynamixel_sdk
+    ${DXL_SDK_ROOT}/include
+)
+
+target_link_libraries(scan_motors PRIVATE pthread)
+
+target_compile_options(scan_motors PRIVATE -Wall -Wextra -O2)
+
+# ── Gripper calibration utility ───────────────────────────────────────────────
+add_executable(calibrate_gripper
+    test/calibrate_gripper.cpp
+    ${DXL_SDK_SRCS}
+    ${DXL_WB_SRCS}
+)
+
+target_include_directories(calibrate_gripper PRIVATE
+    include
+    ${OpenCV_INCLUDE_DIRS}
+    ${DXL_SDK_ROOT}/include/dynamixel_sdk
+    ${DXL_WB_ROOT}/include
+    ${DXL_WB_ROOT}/include/dynamixel_workbench_toolbox
+    ${DXL_WB_ROOT}/src
+    ${DXL_SDK_ROOT}/include
+)
+
+target_link_libraries(calibrate_gripper PRIVATE pthread)
+
+target_compile_options(calibrate_gripper PRIVATE -Wall -Wextra -O2)
+
+# ── Motor error clear utility ─────────────────────────────────────────────────
+add_executable(clear_errors
+    test/clear_errors.cpp
+    ${DXL_SDK_SRCS}
+    ${DXL_WB_SRCS}
+)
+
+target_include_directories(clear_errors PRIVATE
+    include
+    ${OpenCV_INCLUDE_DIRS}
+    ${DXL_SDK_ROOT}/include/dynamixel_sdk
+    ${DXL_WB_ROOT}/include
+    ${DXL_WB_ROOT}/include/dynamixel_workbench_toolbox
+    ${DXL_WB_ROOT}/src
+    ${DXL_SDK_ROOT}/include
+)
+
+target_link_libraries(clear_errors PRIVATE pthread)
+
+target_compile_options(clear_errors PRIVATE -Wall -Wextra -O2)
