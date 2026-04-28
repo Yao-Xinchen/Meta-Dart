@@ -4,21 +4,19 @@
 #include "types.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <thread>
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DecisionModule — pick-and-place state machine
 //
-//  IDLE ──► SEARCHING ──► MOVING_TO_PICK ──► PICKING
-//                                                │
-//  IDLE ◄── PLACING ◄── MOVING_TO_PLACE ◄────────┘
+//  MOVING_HOME ──► SEARCHING ──► MOVING_TO_PICK_HOVER ──► MOVING_TO_PICK
+//       ▲                                                        │
+//       └── RELEASING ◄── MOVING_TO_PLACE ◄── LIFTING ◄── GRIPPING
 //
-// The module waits in SEARCHING until VisionModule provides a valid Detection.
-// It then uses IK to compute the pick joint angles, commands the arm, waits
-// for goal_reached, closes the gripper, moves to the PLACE pose, and releases.
-//
-// Named poses (HOME, PLACE) are left as zero-initialised stubs to be filled
-// in once the physical setup is calibrated.
+// The module waits until VisionModule reports a valid Detection inside a known
+// pick region. Region 1 maps to calibrated fixed joint angles. ArmModule still
+// publishes FK in ArmState so these fixed angles can be verified on hardware.
 // ─────────────────────────────────────────────────────────────────────────────
 class DecisionModule {
 public:
@@ -33,15 +31,34 @@ public:
 private:
     enum class State {
         Idle,
+        MovingHome,
         Searching,
+        MovingToPickHover,
         MovingToPick,
-        Picking,
+        Gripping,
+        Lifting,
         MovingToPlace,
-        Placing,
+        Releasing,
+    };
+
+    enum class PickSlot {
+        None,
+        Position1,
+        Position2,
+        Position3,
+        Position4,
     };
 
     void loop();
+    PickSlot classify_detection(const Detection& det) const;
+    bool slot_is_calibrated(PickSlot slot) const;
+    const std::array<float, 4>& slot_hover_joints(PickSlot slot) const;
+    const std::array<float, 4>& slot_pick_joints(PickSlot slot) const;
+    void report_detection_region(const Detection& det, PickSlot slot);
+    void start_pick(PickSlot slot);
+    void transition_to(State next);
     void send_cmd(const ArmCmd& cmd);
+    const char* pick_slot_name(PickSlot slot) const;
     const char* state_name(State s) const;
 
     TripleBuffer<Detection>& detection_buf_;
@@ -51,4 +68,9 @@ private:
     std::thread      thread_;
     std::atomic<bool> running_{false};
     State             state_ = State::Idle;
+    PickSlot          active_slot_ = PickSlot::None;
+    PickSlot          last_reported_slot_ = PickSlot::None;
+    PickSlot          last_warned_uncalibrated_slot_ = PickSlot::None;
+    std::chrono::steady_clock::time_point state_entered_{};
+    bool              last_reported_detection_valid_ = false;
 };

@@ -11,4 +11,4 @@ python/yolo/yolo*.pt
 dataset/
 .claude/
 
- 
+ .codex
