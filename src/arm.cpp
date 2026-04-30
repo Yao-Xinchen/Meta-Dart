@@ -1,6 +1,5 @@
 #include "arm.hpp"
 #include "config.hpp"
-#include "kinematics.hpp"
 
 #include <DynamixelWorkbench.h>
 
@@ -70,6 +69,7 @@ bool ArmModule::start() {
     float cur[4] = {};
     for (int i = 0; i < 4; ++i)
         dxl_wb_->getRadian(JOINT_IDS[i], &cur[i]);
+    current_joints_ = {cur[0], cur[1], cur[2], cur[3]};
 
     // Read gripper raw encoder unit directly so we can hold it without
     // converting through radians (avoids any Drive Mode sign ambiguity).
@@ -123,6 +123,9 @@ void ArmModule::loop() {
             execute_cmd(cmd);
         }
 
+        // ── Send interpolated setpoint ────────────────────────────────────
+        tick_interp();
+
         // ── Read present positions and publish state ───────────────────────
         ArmState state{};
         state.hw_ok = (dxl_wb_ != nullptr);
@@ -132,11 +135,7 @@ void ArmModule::loop() {
             if (dxl_wb_) dxl_wb_->getRadian(JOINT_IDS[i], &rad);
             state.joints[i] = rad;
         }
-
-        Pose ee = fk(state.joints);
-        state.px = ee.x;
-        state.py = ee.y;
-        state.pz = ee.z;
+        current_joints_ = state.joints;
         state.reached_goal = has_goal_ && goal_reached(state.joints);
 
         state_buf_.write(state);
@@ -150,44 +149,48 @@ void ArmModule::loop() {
 void ArmModule::execute_cmd(const ArmCmd& cmd) {
     switch (cmd.type) {
     case ArmCmd::Type::Idle:
-        has_goal_ = false;
+        interp_active_ = false;
+        has_goal_      = false;
         break;
 
     case ArmCmd::Type::MoveJoint:
-        move_joints(cmd.joints);
+        interp_start_  = current_joints_;
+        interp_goal_   = cmd.joints;
+        interp_t0_     = std::chrono::steady_clock::now();
+        interp_dur_s_  = (cmd.duration > 0.f) ? cmd.duration : 2.0f;
+        interp_active_ = true;
+        goal_joints_   = cmd.joints;
+        has_goal_      = true;
         break;
-
-    case ArmCmd::Type::MovePose: {
-        auto result = ik(Pose{cmd.px, cmd.py, cmd.pz, cmd.pitch});
-        if (result) {
-            move_joints(*result);
-        } else {
-            std::fprintf(stderr, "[Arm] IK failed for (%.3f, %.3f, %.3f)\n",
-                         cmd.px, cmd.py, cmd.pz);
-        }
-        break;
-    }
 
     case ArmCmd::Type::Grip:
         set_gripper(GRIPPER_CLOSED);
-        has_goal_ = false;
+        interp_active_ = false;
+        has_goal_      = false;
         break;
 
     case ArmCmd::Type::Release:
         set_gripper(GRIPPER_OPEN);
-        has_goal_ = false;
+        interp_active_ = false;
+        has_goal_      = false;
         break;
     }
 }
 
-void ArmModule::move_joints(const std::array<float, 4>& joints) {
-    if (!dxl_wb_) return;
+void ArmModule::tick_interp() {
+    if (!interp_active_ || !dxl_wb_) return;
+    using Clock = std::chrono::steady_clock;
+    float elapsed = std::chrono::duration<float>(Clock::now() - interp_t0_).count();
+    float t = (interp_dur_s_ > 0.f) ? (elapsed / interp_dur_s_) : 1.f;
+    if (t >= 1.f) {
+        t = 1.f;
+        interp_active_ = false;
+    }
     const char* log = nullptr;
     for (int i = 0; i < 4; ++i) {
-        dxl_wb_->goalPosition(JOINT_IDS[i], joints[i], &log);
+        float pos = interp_start_[i] + t * (interp_goal_[i] - interp_start_[i]);
+        dxl_wb_->goalPosition(JOINT_IDS[i], pos, &log);
     }
-    goal_joints_ = joints;
-    has_goal_    = true;
 }
 
 void ArmModule::set_gripper(float position_m) {

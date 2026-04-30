@@ -4,6 +4,7 @@
 #include "types.hpp"
 
 #include <atomic>
+#include <chrono>
 #include <thread>
 
 // Forward-declare to avoid pulling in the full Dynamixel headers here
@@ -35,7 +36,7 @@ public:
 private:
     void loop();
     void execute_cmd(const ArmCmd& cmd);
-    void move_joints(const std::array<float, 4>& joints);
+    void tick_interp();
     void set_gripper(float position);
     bool goal_reached(const std::array<float, 4>& joints) const;
 
@@ -45,7 +46,17 @@ private:
     std::thread             thread_;
     std::atomic<bool>       running_{false};
 
-    // Last commanded joint angles for goal-reached check
-    std::array<float, 4>   goal_joints_{};
+    // Goal tracking
+    std::array<float, 4>    goal_joints_{};
     bool                    has_goal_ = false;
+
+    // Interpolation state
+    bool                   interp_active_ = false;
+    std::array<float, 4>   interp_start_  = {};
+    std::array<float, 4>   interp_goal_   = {};
+    std::chrono::steady_clock::time_point interp_t0_;
+    float                  interp_dur_s_  = 0.f;
+
+    // Last-read joint positions (used as interpolation start)
+    std::array<float, 4>   current_joints_ = {};
 };

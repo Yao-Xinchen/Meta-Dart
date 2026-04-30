@@ -1,10 +1,16 @@
 #pragma once
 
 #include "triple_buffer.hpp"
-#include "types.hpp"
 
 #include <atomic>
+#include <cstdint>
+#include <opencv2/opencv.hpp>
 #include <thread>
+
+struct Frame {
+    cv::Mat  image;
+    int64_t  timestamp_us = 0;   // microseconds since epoch
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CameraModule

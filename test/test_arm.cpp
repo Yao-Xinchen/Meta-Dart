@@ -10,14 +10,11 @@
 //   B  – move to home (all joints = 0)
 //   C  – gripper open / close
 //   D  – single-axis sweeps (J1 … J4, ±SWEEP_RAD, then back to 0)
-//   E  – FK / IK round-trip accuracy
-//   F  – MovePose command
 //
 // If no stage argument is given, ALL stages run in sequence.
 
 #include "arm.hpp"
 #include "config.hpp"
-#include "kinematics.hpp"
 #include "types.hpp"
 
 #include <array>
@@ -30,12 +27,8 @@
 using namespace std::chrono_literals;
 
 // ── tunables ──────────────────────────────────────────────────────────────────
-static constexpr float SWEEP_RAD      = 0.3f;    // per-joint sweep amplitude [rad]
-static constexpr float IK_TARGET_X    = 0.30f;   // reachable Cartesian target [m]
-static constexpr float IK_TARGET_Y    = 0.00f;
-static constexpr float IK_TARGET_Z    = 0.15f;
-static constexpr float IK_TARGET_PITCH = 0.0f;
-static constexpr auto  MOVE_TIMEOUT   = 5s;      // max wait for reached_goal
+static constexpr float SWEEP_RAD    = 0.3f;  // per-joint sweep amplitude [rad]
+static constexpr auto  MOVE_TIMEOUT = 5s;    // max wait for reached_goal
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 static ArmState poll_state(ArmModule& arm)
@@ -69,7 +62,6 @@ static void print_state(const ArmState& s)
 {
     std::printf("  joints: [%.3f, %.3f, %.3f, %.3f] rad\n",
                 s.joints[0], s.joints[1], s.joints[2], s.joints[3]);
-    std::printf("  EE pos: (%.4f, %.4f, %.4f) m\n", s.px, s.py, s.pz);
     std::printf("  reached_goal=%d  hw_ok=%d\n", (int)s.reached_goal, (int)s.hw_ok);
 }
 
@@ -188,88 +180,6 @@ static bool stage_D(ArmModule& arm)
     return all_ok;
 }
 
-static bool stage_E(ArmModule& arm)
-{
-    std::printf("\n=== Stage E: FK / IK round-trip ===\n");
-
-    // Read the arm's current joint angles as the test input
-    ArmState s = poll_state(arm);
-    std::printf("  Input joints:  [%.4f, %.4f, %.4f, %.4f]\n",
-                s.joints[0], s.joints[1], s.joints[2], s.joints[3]);
-
-    Pose ee = fk(s.joints);
-    std::printf("  FK result:     (%.4f, %.4f, %.4f) pitch=%.4f\n",
-                ee.x, ee.y, ee.z, ee.pitch);
-
-    auto ik_result = ik(ee);
-    if (!ik_result) {
-        std::printf("FAIL: IK returned nullopt for FK output – workspace or limit issue\n");
-        return false;
-    }
-
-    float max_err = 0.f;
-    std::printf("  IK result:     [%.4f, %.4f, %.4f, %.4f]\n",
-                (*ik_result)[0], (*ik_result)[1], (*ik_result)[2], (*ik_result)[3]);
-    for (int i = 0; i < 4; ++i) {
-        float err = std::abs((*ik_result)[i] - s.joints[i]);
-        max_err = std::max(max_err, err);
-    }
-    std::printf("  Max joint error: %.5f rad  (threshold: %.5f)\n",
-                max_err, GOAL_REACHED_THRESH);
-
-    if (max_err > GOAL_REACHED_THRESH) {
-        std::printf("FAIL: FK/IK round-trip error exceeds threshold\n");
-        return false;
-    }
-    std::printf("PASS: FK/IK round-trip OK.\n");
-    return true;
-}
-
-static bool stage_F(ArmModule& arm)
-{
-    std::printf("\n=== Stage F: MovePose command ===\n");
-    std::printf("  Target: (%.3f, %.3f, %.3f) pitch=%.3f\n",
-                IK_TARGET_X, IK_TARGET_Y, IK_TARGET_Z, IK_TARGET_PITCH);
-
-    // Verify the target is reachable via IK before sending
-    Pose target{IK_TARGET_X, IK_TARGET_Y, IK_TARGET_Z, IK_TARGET_PITCH};
-    auto ik_result = ik(target);
-    if (!ik_result) {
-        std::printf("FAIL: IK says target is unreachable – adjust IK_TARGET_* constants\n");
-        return false;
-    }
-    std::printf("  Expected joints: [%.4f, %.4f, %.4f, %.4f]\n",
-                (*ik_result)[0], (*ik_result)[1], (*ik_result)[2], (*ik_result)[3]);
-
-    ArmCmd cmd;
-    cmd.type  = ArmCmd::Type::MovePose;
-    cmd.px    = IK_TARGET_X;
-    cmd.py    = IK_TARGET_Y;
-    cmd.pz    = IK_TARGET_Z;
-    cmd.pitch = IK_TARGET_PITCH;
-    send_cmd(arm, cmd);
-
-    if (!wait_goal(arm)) {
-        std::printf("FAIL: timed out waiting for pose target\n");
-        print_state(poll_state(arm));
-        return false;
-    }
-
-    ArmState s = poll_state(arm);
-    std::printf("PASS: pose reached.\n");
-    print_state(s);
-
-    // Return to home
-    std::printf("  Returning to home…\n");
-    ArmCmd home;
-    home.type   = ArmCmd::Type::MoveJoint;
-    home.joints = {0.f, 0.f, 0.f, 0.f};
-    send_cmd(arm, home);
-    wait_goal(arm);
-
-    return true;
-}
-
 // ── main ──────────────────────────────────────────────────────────────────────
 int main(int argc, char* argv[])
 {
@@ -293,8 +203,6 @@ int main(int argc, char* argv[])
     if (want("B") || only == nullptr) failed += !stage_B(arm);
     if (want("C") || only == nullptr) failed += !stage_C(arm);
     if (want("D") || only == nullptr) failed += !stage_D(arm);
-    if (want("E") || only == nullptr) failed += !stage_E(arm);
-    if (want("F") || only == nullptr) failed += !stage_F(arm);
 
     // Always go home on exit
     std::printf("\n=== Press Enter to return to home and shut down ===\n");

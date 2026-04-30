@@ -1,6 +1,5 @@
 #include "decision.hpp"
 #include "config.hpp"
-#include "kinematics.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -9,22 +8,28 @@
 using namespace std::chrono_literals;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Named poses — fill these in once the physical setup is calibrated.
+// Named poses — read qpos from hardware and fill these in before deploying.
 //
-// HOME: safe resting position with the arm upright.
+// HOME:  safe resting position with the arm upright.
+// PICK:  position above the dart pick-up point.
 // PLACE: position above the track loading point where the dart is released.
 // ─────────────────────────────────────────────────────────────────────────────
 static const ArmCmd HOME_CMD = {
-    .type   = ArmCmd::Type::MoveJoint,
-    .joints = {0.f, -1.05f, 0.35f, 0.70f},  // TODO: tune on hardware
+    .type     = ArmCmd::Type::MoveJoint,
+    .joints   = {0.f, -1.05f, 0.35f, 0.70f},  // TODO: tune on hardware
+    .duration = 2.0f,
+};
+
+static const ArmCmd PICK_CMD = {
+    .type     = ArmCmd::Type::MoveJoint,
+    .joints   = {0.f, 0.f, 0.f, 0.f},  // TODO: read from hardware at pick pose
+    .duration = 2.0f,
 };
 
 static const ArmCmd PLACE_CMD = {
-    .type  = ArmCmd::Type::MovePose,
-    .px    = 0.20f,  // TODO: measure actual place position
-    .py    = 0.00f,
-    .pz    = 0.05f,
-    .pitch = -1.57f,  // pointing down
+    .type     = ArmCmd::Type::MoveJoint,
+    .joints   = {0.f, 0.f, 0.f, 0.f},  // TODO: read from hardware at place pose
+    .duration = 2.0f,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,15 +96,7 @@ void DecisionModule::loop() {
         case State::Searching:
             if (!arm.hw_ok) break;  // arm not ready
             if (det.valid) {
-                // Compute pick pose: hover above dart, pointing down
-                ArmCmd pick_cmd{
-                    .type  = ArmCmd::Type::MovePose,
-                    .px    = det.x,
-                    .py    = det.y,
-                    .pz    = det.z + 0.03f,  // 3 cm above dart
-                    .pitch = -1.57f,
-                };
-                send_cmd(pick_cmd);
+                send_cmd(PICK_CMD);
                 state_ = State::MovingToPick;
             }
             break;

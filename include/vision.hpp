@@ -1,5 +1,6 @@
 #pragma once
 
+#include "camera.hpp"
 #include "triple_buffer.hpp"
 #include "types.hpp"
 
