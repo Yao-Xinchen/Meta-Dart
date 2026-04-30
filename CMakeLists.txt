@@ -86,6 +86,18 @@ target_include_directories(test_recall PRIVATE include ${DXL_INCLUDE_DIRS})
 target_link_libraries(test_recall PRIVATE pthread)
 target_compile_options(test_recall PRIVATE -Wall -Wextra -O2)
 
+# ── Trajectory test ───────────────────────────────────────────────────────────
+add_executable(test_trajectory test/test_trajectory.cpp ${ARM_SRCS})
+target_include_directories(test_trajectory PRIVATE include ${DXL_INCLUDE_DIRS})
+target_link_libraries(test_trajectory PRIVATE pthread)
+target_compile_options(test_trajectory PRIVATE -Wall -Wextra -O2)
+
+# ── Position recorder utility ─────────────────────────────────────────────────
+add_executable(record_positions test/record_positions.cpp ${DXL_SDK_SRCS} ${DXL_WB_SRCS})
+target_include_directories(record_positions PRIVATE include ${DXL_INCLUDE_DIRS})
+target_link_libraries(record_positions PRIVATE pthread)
+target_compile_options(record_positions PRIVATE -Wall -Wextra -O2)
+
 # ── Motor scan utility ────────────────────────────────────────────────────────
 add_executable(scan_motors test/scan_motors.cpp ${DXL_SDK_SRCS})
 target_include_directories(scan_motors PRIVATE ${DXL_SDK_ROOT}/include/dynamixel_sdk ${DXL_SDK_ROOT}/include)
