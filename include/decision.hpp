@@ -1,5 +1,6 @@
 #pragma once
 
+#include "runtime_config.hpp"
 #include "triple_buffer.hpp"
 #include "types.hpp"
 
@@ -22,7 +23,9 @@ class ArmModule;
 // ─────────────────────────────────────────────────────────────────────────────
 class DecisionModule {
 public:
-    DecisionModule(TripleBuffer<Detection>& detection_buf, ArmModule& arm);
+    DecisionModule(TripleBuffer<Detection>& detection_buf,
+                   ArmModule& arm,
+                   DecisionRuntimeConfig config = DecisionRuntimeConfig{});
     ~DecisionModule();
 
     bool start();
@@ -40,10 +43,10 @@ private:
     void loop();
     const char* state_name(State s) const;
     bool sleep_interruptible(std::chrono::milliseconds duration) const;
-    bool wait_for_goal(std::chrono::seconds timeout) const;
+    bool wait_for_goal(std::chrono::milliseconds timeout) const;
     bool wait_until_near(const std::array<float, 4>& target,
                          float threshold,
-                         std::chrono::seconds timeout) const;
+                         std::chrono::milliseconds timeout) const;
     bool move_to_and_wait(const std::string& name, float duration, bool stop_at_goal = true);
     bool move_to_search_pose();
     bool execute_pickup_trajectory(int zone_index);
@@ -53,6 +56,7 @@ private:
 
     TripleBuffer<Detection>& detection_buf_;
     ArmModule&               arm_;
+    DecisionRuntimeConfig    config_;
 
     std::thread       thread_;
     std::atomic<bool> running_{false};

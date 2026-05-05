@@ -1,6 +1,7 @@
 #pragma once
 
 #include "camera.hpp"
+#include "config.hpp"
 #include "triple_buffer.hpp"
 #include "types.hpp"
 
@@ -20,7 +21,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 class VisionModule {
 public:
-    explicit VisionModule(TripleBuffer<Frame>& camera_buf);
+    explicit VisionModule(TripleBuffer<Frame>& camera_buf,
+                          float confidence_threshold = CONF_THRESHOLD);
     ~VisionModule();
 
     bool start();

@@ -1,0 +1,87 @@
+{
+  "vision": {
+    "confidence_threshold": 0.25
+  },
+  "decision": {
+    "stable_dart_time_s": 2.0,
+    "reset_cooldown_s": 2.0,
+    "search_wait_pose": "backward_prep",
+    "search_ready_sequence": [
+      "home",
+      "forward_prep",
+      "backward_prep"
+    ],
+    "homing_move_duration_s": 4.0,
+    "min_segment_duration_s": 2.0,
+    "max_segment_duration_s": 9.0,
+    "joint_cruise_speed_rad_s": 0.45,
+    "flythrough_joint_threshold_rad": 0.12,
+    "move_timeout_s": 15.0,
+    "gripper_settle_s": 1.0,
+    "waypoint_settle_ms": 300.0,
+    "zones": [
+      {
+        "name": "slot_1",
+        "center_x": -0.062,
+        "center_y": 0.029,
+        "half_width": 0.020,
+        "half_height": 0.020,
+        "trajectory": "slot_1"
+      },
+      {
+        "name": "slot_2",
+        "center_x": 0.068,
+        "center_y": 0.026,
+        "half_width": 0.020,
+        "half_height": 0.020,
+        "trajectory": "slot_2"
+      },
+      {
+        "name": "slot_3",
+        "center_x": 0.105,
+        "center_y": -0.008,
+        "half_width": 0.020,
+        "half_height": 0.020,
+        "trajectory": "slot_3"
+      }
+    ],
+    "trajectories": {
+      "slot_0": [
+        {"position": "s0_prep", "gripper": "open"},
+        {"position": "s0_grasp", "gripper": "close"},
+        {"position": "s0_pulled_out", "gripper": "none"},
+        {"position": "backward_prep", "gripper": "none"},
+        {"position": "forward_prep", "gripper": "none"},
+        {"position": "loading", "gripper": "open"},
+        {"position": "home", "gripper": "none"}
+      ],
+      "slot_1": [
+        {"position": "s1_prep", "gripper": "open"},
+        {"position": "s1_grasp", "gripper": "close"},
+        {"position": "s1_pulled_out", "gripper": "none"},
+        {"position": "backward_prep", "gripper": "none"},
+        {"position": "forward_prep", "gripper": "none"},
+        {"position": "loading", "gripper": "open"},
+        {"position": "home", "gripper": "none"}
+      ],
+      "slot_2": [
+        {"position": "s2_prep", "gripper": "open"},
+        {"position": "s2_grasp", "gripper": "close"},
+        {"position": "s2_pulled_out", "gripper": "none"},
+        {"position": "backward_prep", "gripper": "none"},
+        {"position": "forward_prep", "gripper": "none"},
+        {"position": "loading", "gripper": "open"},
+        {"position": "home", "gripper": "none"}
+      ],
+      "slot_3": [
+        {"position": "s3_prep", "gripper": "open"},
+        {"position": "s3_grasp", "gripper": "close"},
+        {"position": "s3_pulled_out", "gripper": "none"},
+        {"position": "backward_prep", "gripper": "none"},
+        {"position": "forward_prep", "gripper": "none"},
+        {"position": "loading", "gripper": "open"},
+        {"position": "home", "gripper": "none"}
+      ]
+    }
+  }
+}

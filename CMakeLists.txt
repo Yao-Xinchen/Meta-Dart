@@ -54,6 +54,7 @@ add_executable(loader
     src/vision.cpp
     src/arm.cpp
     src/decision.cpp
+    src/runtime_config.cpp
     ${DXL_SDK_SRCS}
     ${DXL_WB_SRCS}
 )

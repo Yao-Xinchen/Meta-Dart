@@ -13,11 +13,12 @@ using namespace std::chrono_literals;
 // Construction / destruction
 // ─────────────────────────────────────────────────────────────────────────────
 
-VisionModule::VisionModule(TripleBuffer<Frame>& camera_buf)
+VisionModule::VisionModule(TripleBuffer<Frame>& camera_buf,
+                           float confidence_threshold)
     : camera_buf_(camera_buf)
     , ort_env_(ORT_LOGGING_LEVEL_WARNING, "vision")
     , ort_mem_(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault))
-    , confidence_threshold_(CONF_THRESHOLD)
+    , confidence_threshold_(confidence_threshold)
 {
     if (const char* env = std::getenv("META_DART_CONF_THRESHOLD")) {
         char* end = nullptr;

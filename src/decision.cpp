@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 #include <thread>
+#include <utility>
 #include <vector>
 
 using namespace std::chrono_literals;
@@ -14,143 +15,36 @@ using namespace std::chrono_literals;
 namespace {
 
 constexpr auto DECISION_PERIOD = std::chrono::microseconds(1'000'000 / DECISION_LOOP_HZ);
-constexpr auto STABLE_DART_TIME = 2s;
-constexpr float HOMING_MOVE_DURATION = 4.0f;
-constexpr float MIN_SEGMENT_DURATION = 2.0f;
-constexpr float MAX_SEGMENT_DURATION = 9.0f;
-constexpr float JOINT_CRUISE_SPEED_RAD_S = 0.45f;
-constexpr float FLYTHROUGH_JOINT_THRESHOLD = 0.12f;
-constexpr auto MOVE_TIMEOUT = 15s;
-constexpr auto GRIPPER_SETTLE = 1s;
-constexpr auto WAYPOINT_SETTLE = 300ms;
-constexpr auto RESET_COOLDOWN = 2s;
-constexpr const char* SEARCH_WAIT_POSE = "backward_prep";
 
-const std::vector<const char*> SEARCH_READY_SEQUENCE = {
-    "home",
-    "forward_prep",
-    SEARCH_WAIT_POSE,
-};
+std::chrono::milliseconds seconds_to_ms(float seconds)
+{
+    if (seconds < 0.f)
+        seconds = 0.f;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::duration<float>(seconds));
+}
 
-// ── Detection zones ──────────────────────────────────────────────────────────
-// Tune these centers and half-sizes after camera calibration.  Units are
-// metres in the VisionModule world frame.  The defaults below are seeded from
-// the clusters seen during manual camera testing.
-constexpr float DEFAULT_ZONE_HALF_W_M = 0.020f;
-constexpr float DEFAULT_ZONE_HALF_H_M = 0.020f;
+std::chrono::milliseconds millis_to_ms(float milliseconds)
+{
+    if (milliseconds < 0.f)
+        milliseconds = 0.f;
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::duration<float, std::milli>(milliseconds));
+}
 
-enum class TrajectoryId {
-    Slot0,
-    Slot1,
-    Slot2,
-    Slot3,
-};
-
-struct DartZone {
-    const char*  name;
-    float        cx;
-    float        cy;
-    float        half_w;
-    float        half_h;
-    TrajectoryId trajectory;
-};
-
-const std::vector<DartZone> DART_ZONES = {
-    // name       center_x  center_y  half_width              half_height              trajectory
-    {"slot_1",   -0.062f,    0.029f,  DEFAULT_ZONE_HALF_W_M,  DEFAULT_ZONE_HALF_H_M,  TrajectoryId::Slot1},
-    {"slot_2",    0.068f,    0.026f,  DEFAULT_ZONE_HALF_W_M,  DEFAULT_ZONE_HALF_H_M,  TrajectoryId::Slot2},
-    {"slot_3",    0.105f,   -0.008f,  DEFAULT_ZONE_HALF_W_M,  DEFAULT_ZONE_HALF_H_M,  TrajectoryId::Slot3},
-};
-
-bool contains(const DartZone& zone, const Detection& det)
+bool contains(const DecisionZone& zone, const Detection& det)
 {
     return std::abs(det.x - zone.cx) <= zone.half_w &&
            std::abs(det.y - zone.cy) <= zone.half_h;
 }
 
-int find_zone(const Detection& det)
+int find_zone(const Detection& det, const std::vector<DecisionZone>& zones)
 {
-    for (size_t i = 0; i < DART_ZONES.size(); ++i) {
-        if (contains(DART_ZONES[i], det))
+    for (size_t i = 0; i < zones.size(); ++i) {
+        if (contains(zones[i], det))
             return static_cast<int>(i);
     }
     return -1;
-}
-
-// ── Trajectories ─────────────────────────────────────────────────────────────
-// Edit these tables when a fixed dart slot needs a different pickup sequence.
-// Gripper actions are tied to the step they should run after arriving at.
-enum class GripperAction {
-    None,
-    Open,
-    Close,
-};
-
-struct TrajectoryStep {
-    const char*   position;
-    GripperAction gripper;
-};
-
-const std::vector<TrajectoryStep> TRAJECTORY_SLOT_0 = {
-    {"s0_prep",        GripperAction::Open},
-    {"s0_grasp",       GripperAction::Close},
-    {"s0_pulled_out",  GripperAction::None},
-    {"backward_prep",  GripperAction::None},
-    {"forward_prep",   GripperAction::None},
-    {"loading",        GripperAction::None},
-    {"home",           GripperAction::None},
-};
-
-const std::vector<TrajectoryStep> TRAJECTORY_SLOT_1 = {
-    {"s1_prep",        GripperAction::Open},
-    {"s1_grasp",       GripperAction::Close},
-    {"s1_pulled_out",  GripperAction::None},
-    {"backward_prep",  GripperAction::None},
-    {"forward_prep",   GripperAction::None},
-    {"loading",        GripperAction::None},
-    {"home",           GripperAction::None},
-};
-
-const std::vector<TrajectoryStep> TRAJECTORY_SLOT_2 = {
-    {"s2_prep",        GripperAction::Open},
-    {"s2_grasp",       GripperAction::Close},
-    {"s2_pulled_out",  GripperAction::None},
-    {"backward_prep",  GripperAction::None},
-    {"forward_prep",   GripperAction::None},
-    {"loading",        GripperAction::None},
-    {"home",           GripperAction::None},
-};
-
-const std::vector<TrajectoryStep> TRAJECTORY_SLOT_3 = {
-    {"s3_prep",        GripperAction::Open},
-    {"s3_grasp",       GripperAction::Close},
-    {"s3_pulled_out",  GripperAction::None},
-    {"backward_prep",  GripperAction::None},
-    {"forward_prep",   GripperAction::None},
-    {"loading",        GripperAction::None},
-    {"home",           GripperAction::None},
-};
-
-const char* trajectory_name(TrajectoryId id)
-{
-    switch (id) {
-    case TrajectoryId::Slot0: return "trajectory_slot_0";
-    case TrajectoryId::Slot1: return "trajectory_slot_1";
-    case TrajectoryId::Slot2: return "trajectory_slot_2";
-    case TrajectoryId::Slot3: return "trajectory_slot_3";
-    default:                  return "?";
-    }
-}
-
-const std::vector<TrajectoryStep>& trajectory_steps(TrajectoryId id)
-{
-    switch (id) {
-    case TrajectoryId::Slot0: return TRAJECTORY_SLOT_0;
-    case TrajectoryId::Slot1: return TRAJECTORY_SLOT_1;
-    case TrajectoryId::Slot2: return TRAJECTORY_SLOT_2;
-    case TrajectoryId::Slot3: return TRAJECTORY_SLOT_3;
-    default:                  return TRAJECTORY_SLOT_0;
-    }
 }
 
 float clampf(float value, float lo, float hi)
@@ -170,20 +64,27 @@ float max_joint_delta(const std::array<float, 4>& from,
 }
 
 float duration_for_segment(const std::array<float, 4>& from,
-                           const std::array<float, 4>& to)
+                           const std::array<float, 4>& to,
+                           const DecisionRuntimeConfig& config)
 {
     const float max_delta = max_joint_delta(from, to);
-    const float duration = max_delta / JOINT_CRUISE_SPEED_RAD_S;
-    return clampf(duration, MIN_SEGMENT_DURATION, MAX_SEGMENT_DURATION);
+    const float cruise_speed = (config.joint_cruise_speed_rad_s > 0.01f)
+        ? config.joint_cruise_speed_rad_s
+        : 0.01f;
+    const float duration = max_delta / cruise_speed;
+    return clampf(duration, config.min_segment_duration_s, config.max_segment_duration_s);
 }
 
 }  // namespace
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-DecisionModule::DecisionModule(TripleBuffer<Detection>& detection_buf, ArmModule& arm)
+DecisionModule::DecisionModule(TripleBuffer<Detection>& detection_buf,
+                               ArmModule& arm,
+                               DecisionRuntimeConfig config)
     : detection_buf_(detection_buf)
     , arm_(arm)
+    , config_(std::move(config))
 {}
 
 DecisionModule::~DecisionModule() { stop(); }
@@ -213,7 +114,7 @@ bool DecisionModule::sleep_interruptible(std::chrono::milliseconds duration) con
     return running_;
 }
 
-bool DecisionModule::wait_for_goal(std::chrono::seconds timeout) const
+bool DecisionModule::wait_for_goal(std::chrono::milliseconds timeout) const
 {
     using Clock = std::chrono::steady_clock;
     const auto deadline = Clock::now() + timeout;
@@ -237,7 +138,7 @@ bool DecisionModule::wait_for_goal(std::chrono::seconds timeout) const
 
 bool DecisionModule::wait_until_near(const std::array<float, 4>& target,
                                      float threshold,
-                                     std::chrono::seconds timeout) const
+                                     std::chrono::milliseconds timeout) const
 {
     using Clock = std::chrono::steady_clock;
     const auto deadline = Clock::now() + timeout;
@@ -274,7 +175,7 @@ bool DecisionModule::move_to_and_wait(const std::string& name,
 
     const bool have_state = arm_.read_state(state);
     const float duration = have_state
-        ? duration_for_segment(state.joints, target)
+        ? duration_for_segment(state.joints, target, config_)
         : fallback_duration;
 
     std::printf("[Decision] Move -> %s  duration=%.2fs%s\n",
@@ -287,15 +188,17 @@ bool DecisionModule::move_to_and_wait(const std::string& name,
         return false;
 
     if (stop_at_goal) {
-        if (!wait_for_goal(MOVE_TIMEOUT)) {
+        if (!wait_for_goal(seconds_to_ms(config_.move_timeout_s))) {
             std::fprintf(stderr, "[Decision] Timed out moving to %s\n", name.c_str());
             return false;
         }
 
-        if (!sleep_interruptible(std::chrono::duration_cast<std::chrono::milliseconds>(WAYPOINT_SETTLE)))
+        if (!sleep_interruptible(millis_to_ms(config_.waypoint_settle_ms)))
             return false;
     } else {
-        if (!wait_until_near(target, FLYTHROUGH_JOINT_THRESHOLD, MOVE_TIMEOUT)) {
+        if (!wait_until_near(target,
+                             config_.flythrough_joint_threshold_rad,
+                             seconds_to_ms(config_.move_timeout_s))) {
             std::fprintf(stderr, "[Decision] Timed out approaching fly-through waypoint %s\n",
                          name.c_str());
             return false;
@@ -307,51 +210,66 @@ bool DecisionModule::move_to_and_wait(const std::string& name,
 
 bool DecisionModule::move_to_search_pose()
 {
-    std::printf("[Decision] Preparing search pose: home -> forward_prep -> %s\n",
-                SEARCH_WAIT_POSE);
+    if (config_.search_ready_sequence.empty()) {
+        std::fprintf(stderr, "[Decision] search_ready_sequence is empty\n");
+        return false;
+    }
 
-    for (size_t i = 0; i < SEARCH_READY_SEQUENCE.size(); ++i) {
-        const bool last_step = (i + 1 == SEARCH_READY_SEQUENCE.size());
-        if (!move_to_and_wait(SEARCH_READY_SEQUENCE[i], HOMING_MOVE_DURATION, last_step))
+    std::printf("[Decision] Preparing search pose");
+    for (const auto& pose : config_.search_ready_sequence)
+        std::printf(" -> %s", pose.c_str());
+    std::printf("\n");
+
+    for (size_t i = 0; i < config_.search_ready_sequence.size(); ++i) {
+        const bool last_step = (i + 1 == config_.search_ready_sequence.size());
+        if (!move_to_and_wait(config_.search_ready_sequence[i],
+                              config_.homing_move_duration_s,
+                              last_step))
             return false;
     }
 
-    std::printf("[Decision] Search waiting at %s\n", SEARCH_WAIT_POSE);
+    std::printf("[Decision] Search waiting at %s\n", config_.search_wait_pose.c_str());
     return true;
 }
 
 bool DecisionModule::execute_pickup_trajectory(int zone_index)
 {
-    if (zone_index < 0 || zone_index >= static_cast<int>(DART_ZONES.size())) {
+    if (zone_index < 0 || zone_index >= static_cast<int>(config_.zones.size())) {
         std::fprintf(stderr, "[Decision] Invalid zone index: %d\n", zone_index);
         return false;
     }
 
-    const DartZone& zone = DART_ZONES[zone_index];
-    const auto& steps = trajectory_steps(zone.trajectory);
+    const DecisionZone& zone = config_.zones[zone_index];
+    auto trajectory_it = config_.trajectories.find(zone.trajectory);
+    if (trajectory_it == config_.trajectories.end()) {
+        std::fprintf(stderr, "[Decision] Missing trajectory '%s' for zone '%s'\n",
+                     zone.trajectory.c_str(), zone.name.c_str());
+        return false;
+    }
+    const auto& steps = trajectory_it->second;
 
     std::printf("[Decision] Starting %s for %s; camera updates ignored until reset\n",
-                trajectory_name(zone.trajectory), zone.name);
+                zone.trajectory.c_str(), zone.name.c_str());
 
     for (size_t i = 0; i < steps.size(); ++i) {
-        const TrajectoryStep& step = steps[i];
+        const DecisionTrajectoryStep& step = steps[i];
         if (!running_) return false;
 
         const bool last_step = (i + 1 == steps.size());
         const bool stop_at_goal = last_step || step.gripper != GripperAction::None;
 
-        if (!move_to_and_wait(step.position, HOMING_MOVE_DURATION, stop_at_goal))
+        if (!move_to_and_wait(step.position, config_.homing_move_duration_s, stop_at_goal))
             return false;
 
         if (step.gripper == GripperAction::Open) {
-            std::printf("[Decision] Open gripper at %s\n", step.position);
+            std::printf("[Decision] Open gripper at %s\n", step.position.c_str());
             arm_.release();
-            if (!sleep_interruptible(std::chrono::duration_cast<std::chrono::milliseconds>(GRIPPER_SETTLE)))
+            if (!sleep_interruptible(seconds_to_ms(config_.gripper_settle_s)))
                 return false;
         } else if (step.gripper == GripperAction::Close) {
-            std::printf("[Decision] Close gripper at %s\n", step.position);
+            std::printf("[Decision] Close gripper at %s\n", step.position.c_str());
             arm_.grip();
-            if (!sleep_interruptible(std::chrono::duration_cast<std::chrono::milliseconds>(GRIPPER_SETTLE)))
+            if (!sleep_interruptible(seconds_to_ms(config_.gripper_settle_s)))
                 return false;
         }
     }
@@ -375,7 +293,7 @@ bool DecisionModule::update_stability(const Detection& det,
         return false;
     }
 
-    const int zone_index = find_zone(det);
+    const int zone_index = find_zone(det, config_.zones);
     if (zone_index < 0) {
         if (stable_zone_index_ >= 0)
             std::printf("[Decision] Dart left all zones; stability reset\n");
@@ -383,23 +301,23 @@ bool DecisionModule::update_stability(const Detection& det,
         return false;
     }
 
-    const DartZone& zone = DART_ZONES[zone_index];
+    const DecisionZone& zone = config_.zones[zone_index];
 
     if (stable_zone_index_ != zone_index) {
         stable_zone_index_ = zone_index;
         stable_t0_ = now;
         std::printf("[Decision] Dart entered %s bbox: det=(%.3f, %.3f), center=(%.3f, %.3f), half=(%.3f, %.3f); waiting %.1fs\n",
-                    zone.name, det.x, det.y, zone.cx, zone.cy, zone.half_w, zone.half_h,
-                    std::chrono::duration<float>(STABLE_DART_TIME).count());
+                    zone.name.c_str(), det.x, det.y, zone.cx, zone.cy, zone.half_w, zone.half_h,
+                    config_.stable_dart_time_s);
         return false;
     }
 
-    if (now - stable_t0_ >= STABLE_DART_TIME) {
+    if (now - stable_t0_ >= seconds_to_ms(config_.stable_dart_time_s)) {
         triggered_zone_index_ = zone_index;
         std::printf("[Decision] Dart stayed in %s for %.1fs; triggering %s\n",
-                    zone.name,
+                    zone.name.c_str(),
                     std::chrono::duration<float>(now - stable_t0_).count(),
-                    trajectory_name(zone.trajectory));
+                    zone.trajectory.c_str());
         return true;
     }
 
@@ -471,16 +389,16 @@ void DecisionModule::loop() {
                 state_ = State::ResetCooldown;
             } else if (running_) {
                 std::fprintf(stderr, "[Decision] Pickup trajectory failed; returning home before idle\n");
-                move_to_and_wait("home", HOMING_MOVE_DURATION);
+                move_to_and_wait("home", config_.homing_move_duration_s);
                 state_ = State::Idle;
             }
             break;
 
         case State::ResetCooldown:
             std::printf("[Decision] Reset cooldown %.1fs before searching again\n",
-                        std::chrono::duration<float>(RESET_COOLDOWN).count());
+                        config_.reset_cooldown_s);
             reset_stability();
-            sleep_interruptible(std::chrono::duration_cast<std::chrono::milliseconds>(RESET_COOLDOWN));
+            sleep_interruptible(seconds_to_ms(config_.reset_cooldown_s));
             if (running_)
                 state_ = State::Homing;
             break;
