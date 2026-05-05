@@ -49,7 +49,7 @@ constexpr int VISION_LOOP_HZ       = 30;   // vision thread rate
 constexpr int DECISION_LOOP_HZ     = 10;   // decision thread rate
 
 // Goal-reached threshold [rad]
-constexpr float GOAL_REACHED_THRESH = 0.02f;
+constexpr float GOAL_REACHED_THRESH = 0.05f;
 
 // ── Vision / ONNX ─────────────────────────────────────────────────────────────
 constexpr bool        VISION_TIMING_DEBUG  = false;  // print per-frame timing stats

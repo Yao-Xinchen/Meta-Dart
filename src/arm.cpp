@@ -76,10 +76,13 @@ bool ArmModule::start() {
     int32_t cur_grip_unit = 0;
     dxl_wb_->itemRead(DXL_ID_GRIPPER, "Present_Position", &cur_grip_unit, &log);
 
-    // Step 3: Enable joint mode and immediately restore the goal position.
+    // Step 3: Extended Position Mode allows multi-turn range (joints travel
+    //         beyond ±π). Restore current position before torque-on so the
+    //         arm doesn't snap to the default Goal Position (0).
     for (int i = 0; i < 4; ++i) {
-        dxl_wb_->jointMode(JOINT_IDS[i], 0, 0, &log);
+        dxl_wb_->setExtendedPositionControlMode(JOINT_IDS[i], &log);
         dxl_wb_->goalPosition(JOINT_IDS[i], cur[i], &log);
+        dxl_wb_->torqueOn(JOINT_IDS[i], &log);
     }
     // Gripper: current-based position control (mode 5), Drive Mode 5
     // (reverse direction), Goal Current 200 — matches OpenManipulator reference.

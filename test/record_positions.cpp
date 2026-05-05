@@ -93,6 +93,10 @@ int main(int argc, char* argv[])
         if (!dxl_wb.ping(id, &model, &log))
             std::fprintf(stderr, "WARN: ping failed for ID %u: %s\n", id, log ? log : "?");
     }
+    // Set Extended Position Mode so readings are multi-turn, matching what
+    // arm.cpp commands. Torque stays off — arm remains compliant.
+    for (uint8_t id : JOINT_IDS)
+        dxl_wb.setExtendedPositionControlMode(id, &log);
 
     // Load existing file so we don't lose previously recorded positions.
     PositionList order;
