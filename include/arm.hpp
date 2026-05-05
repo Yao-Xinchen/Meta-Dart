@@ -3,8 +3,11 @@
 #include "triple_buffer.hpp"
 #include "types.hpp"
 
+#include <array>
 #include <atomic>
 #include <chrono>
+#include <map>
+#include <string>
 #include <thread>
 
 // Forward-declare to avoid pulling in the full Dynamixel headers here
@@ -30,8 +33,15 @@ public:
     // Signal the thread to stop, send all joints to home, then join.
     void stop();
 
-    TripleBuffer<ArmCmd>&   cmd_buf()   { return cmd_buf_; }
-    TripleBuffer<ArmState>& state_buf() { return state_buf_; }
+    // Command interface
+    void move_joints(const std::array<float, 4>& joints, float duration = 0.f);
+    bool move_to(const std::string& name, float duration = 0.f);
+    void grip();
+    void release();
+    void idle();
+
+    // State interface
+    bool read_state(ArmState& out);
 
 private:
     void loop();
@@ -39,6 +49,7 @@ private:
     void tick_interp();
     void set_gripper(float position);
     bool goal_reached(const std::array<float, 4>& joints) const;
+    bool load_positions(const char* xml_path);
 
     DynamixelWorkbench*     dxl_wb_    = nullptr;
     TripleBuffer<ArmCmd>    cmd_buf_;
@@ -59,4 +70,7 @@ private:
 
     // Last-read joint positions (used as interpolation start)
     std::array<float, 4>   current_joints_ = {};
+
+    // Named positions loaded from XML
+    std::map<std::string, std::array<float, 4>> positions_;
 };

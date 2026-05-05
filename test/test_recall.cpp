@@ -10,7 +10,6 @@
 
 #include "arm.hpp"
 #include "config.hpp"
-#include "types.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -27,7 +26,7 @@ static constexpr auto                 MOVE_TIMEOUT  = 10s;   // max wait for rea
 static ArmState poll_state(ArmModule& arm)
 {
     static ArmState last{};
-    arm.state_buf().read(last);
+    arm.read_state(last);
     return last;
 }
 
@@ -53,11 +52,7 @@ static bool wait_goal(ArmModule& arm)
 
 static void send_joints(ArmModule& arm, const std::array<float, 4>& joints, float duration)
 {
-    ArmCmd cmd;
-    cmd.type     = ArmCmd::Type::MoveJoint;
-    cmd.joints   = joints;
-    cmd.duration = duration;
-    arm.cmd_buf().write(cmd);
+    arm.move_joints(joints, duration);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000 / ARM_LOOP_HZ + 5));
 }
 

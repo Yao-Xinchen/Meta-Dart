@@ -15,7 +15,6 @@
 
 #include "arm.hpp"
 #include "config.hpp"
-#include "types.hpp"
 
 #include <array>
 #include <chrono>
@@ -34,7 +33,7 @@ static constexpr auto  MOVE_TIMEOUT = 5s;    // max wait for reached_goal
 static ArmState poll_state(ArmModule& arm)
 {
     static ArmState last{};
-    arm.state_buf().read(last);  // no-op if nothing new; last keeps prior value
+    arm.read_state(last);
     return last;
 }
 
@@ -51,12 +50,7 @@ static bool wait_goal(ArmModule& arm, std::chrono::seconds timeout = MOVE_TIMEOU
     return false;
 }
 
-static void send_cmd(ArmModule& arm, const ArmCmd& cmd)
-{
-    arm.cmd_buf().write(cmd);
-    // Give the control thread one loop period to pick it up
-    std::this_thread::sleep_for(std::chrono::milliseconds(1000 / ARM_LOOP_HZ + 5));
-}
+static constexpr auto CMD_PICKUP = std::chrono::milliseconds(1000 / ARM_LOOP_HZ + 5);
 
 static void print_state(const ArmState& s)
 {
@@ -90,10 +84,8 @@ static bool stage_A(ArmModule& arm)
 static bool stage_B(ArmModule& arm)
 {
     std::printf("\n=== Stage B: move to home (all joints = 0) ===\n");
-    ArmCmd cmd;
-    cmd.type   = ArmCmd::Type::MoveJoint;
-    cmd.joints = {0.f, 0.f, 0.f, 0.f};
-    send_cmd(arm, cmd);
+    arm.move_joints({0.f, 0.f, 0.f, 0.f});
+    std::this_thread::sleep_for(CMD_PICKUP);
 
     if (!wait_goal(arm)) {
         std::printf("FAIL: timed out waiting for home position\n");
@@ -111,23 +103,18 @@ static bool stage_C(ArmModule& arm)
     std::printf("\n=== Stage C: gripper open / close ===\n");
 
     std::printf("  Opening gripper (Release)…\n");
-    ArmCmd open_cmd;
-    open_cmd.type = ArmCmd::Type::Release;
-    send_cmd(arm, open_cmd);
+    arm.release();
     std::this_thread::sleep_for(1s);
     std::printf("  >> Visually confirm gripper is OPEN. Press Enter to continue.\n");
     std::getchar();
 
     std::printf("  Closing gripper (Grip)…\n");
-    ArmCmd grip_cmd;
-    grip_cmd.type = ArmCmd::Type::Grip;
-    send_cmd(arm, grip_cmd);
+    arm.grip();
     std::this_thread::sleep_for(1s);
     std::printf("  >> Visually confirm gripper is CLOSED. Press Enter to continue.\n");
     std::getchar();
 
-    // Return to open for safety
-    send_cmd(arm, open_cmd);
+    arm.release();
     std::this_thread::sleep_for(500ms);
 
     std::printf("PASS: gripper stage done (visual confirmation only).\n");
@@ -142,36 +129,36 @@ static bool stage_D(ArmModule& arm)
     bool all_ok = true;
 
     for (int i = 0; i < 4; ++i) {
+        std::array<float, 4> joints = {0.f, 0.f, 0.f, 0.f};
+
         // positive sweep
         std::printf("  %s +%.2f rad… ", names[i], SWEEP_RAD);
-        ArmCmd cmd;
-        cmd.type   = ArmCmd::Type::MoveJoint;
-        cmd.joints = {0.f, 0.f, 0.f, 0.f};
-        cmd.joints[i] = SWEEP_RAD;
-        send_cmd(arm, cmd);
+        joints[i] = SWEEP_RAD;
+        arm.move_joints(joints);
+        std::this_thread::sleep_for(CMD_PICKUP);
         if (!wait_goal(arm)) {
             std::printf("FAIL (timeout)\n");
             all_ok = false;
         } else {
-            ArmState s = poll_state(arm);
-            std::printf("OK  actual=%.3f\n", s.joints[i]);
+            std::printf("OK  actual=%.3f\n", poll_state(arm).joints[i]);
         }
 
         // negative sweep
         std::printf("  %s -%.2f rad… ", names[i], SWEEP_RAD);
-        cmd.joints[i] = -SWEEP_RAD;
-        send_cmd(arm, cmd);
+        joints[i] = -SWEEP_RAD;
+        arm.move_joints(joints);
+        std::this_thread::sleep_for(CMD_PICKUP);
         if (!wait_goal(arm)) {
             std::printf("FAIL (timeout)\n");
             all_ok = false;
         } else {
-            ArmState s = poll_state(arm);
-            std::printf("OK  actual=%.3f\n", s.joints[i]);
+            std::printf("OK  actual=%.3f\n", poll_state(arm).joints[i]);
         }
 
         // return to zero
-        cmd.joints[i] = 0.f;
-        send_cmd(arm, cmd);
+        joints[i] = 0.f;
+        arm.move_joints(joints);
+        std::this_thread::sleep_for(CMD_PICKUP);
         wait_goal(arm);
     }
 
@@ -208,10 +195,8 @@ int main(int argc, char* argv[])
     std::printf("\n=== Press Enter to return to home and shut down ===\n");
     std::getchar();
     std::printf("Returning to home...\n");
-    ArmCmd home;
-    home.type   = ArmCmd::Type::MoveJoint;
-    home.joints = {0.f, 0.f, 0.f, 0.f};
-    send_cmd(arm, home);
+    arm.move_joints({0.f, 0.f, 0.f, 0.f});
+    std::this_thread::sleep_for(CMD_PICKUP);
     wait_goal(arm);
 
     arm.stop();

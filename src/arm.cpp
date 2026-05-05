@@ -6,6 +6,8 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
+#include <string>
 #include <thread>
 
 using namespace std::chrono_literals;
@@ -40,7 +42,87 @@ ArmModule::ArmModule()  = default;
 ArmModule::~ArmModule() { stop(); }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Named positions
+// ─────────────────────────────────────────────────────────────────────────────
+bool ArmModule::load_positions(const char* xml_path)
+{
+    std::ifstream f(xml_path);
+    if (!f) {
+        std::fprintf(stderr, "[Arm] cannot open positions file: %s\n", xml_path);
+        return false;
+    }
+    auto get_attr = [](const std::string& line, const std::string& attr) -> std::string {
+        auto pos = line.find(attr + "=\"");
+        if (pos == std::string::npos) return {};
+        pos += attr.size() + 2;
+        return line.substr(pos, line.find('"', pos) - pos);
+    };
+    std::string line;
+    while (std::getline(f, line)) {
+        if (line.find("<position") == std::string::npos) continue;
+        std::string name = get_attr(line, "name");
+        if (name.empty()) continue;
+        std::array<float, 4> j{};
+        j[0] = std::stof(get_attr(line, "j1"));
+        j[1] = std::stof(get_attr(line, "j2"));
+        j[2] = std::stof(get_attr(line, "j3"));
+        j[3] = std::stof(get_attr(line, "j4"));
+        positions_[name] = j;
+    }
+    std::printf("[Arm] loaded %zu position(s) from %s\n", positions_.size(), xml_path);
+    return true;
+}
+
+bool ArmModule::move_to(const std::string& name, float duration)
+{
+    auto it = positions_.find(name);
+    if (it == positions_.end()) {
+        std::fprintf(stderr, "[Arm] unknown position: '%s'\n", name.c_str());
+        return false;
+    }
+    move_joints(it->second, duration);
+    return true;
+}
+
+void ArmModule::move_joints(const std::array<float, 4>& joints, float duration)
+{
+    ArmCmd cmd;
+    cmd.type     = ArmCmd::Type::MoveJoint;
+    cmd.joints   = joints;
+    cmd.duration = duration;
+    cmd_buf_.write(cmd);
+}
+
+void ArmModule::grip()
+{
+    ArmCmd cmd;
+    cmd.type = ArmCmd::Type::Grip;
+    cmd_buf_.write(cmd);
+}
+
+void ArmModule::release()
+{
+    ArmCmd cmd;
+    cmd.type = ArmCmd::Type::Release;
+    cmd_buf_.write(cmd);
+}
+
+void ArmModule::idle()
+{
+    ArmCmd cmd;
+    cmd.type = ArmCmd::Type::Idle;
+    cmd_buf_.write(cmd);
+}
+
+bool ArmModule::read_state(ArmState& out)
+{
+    return state_buf_.read(out);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 bool ArmModule::start() {
+    load_positions(POSITIONS_XML_PATH);
+
     const char* log = nullptr;
     dxl_wb_ = new DynamixelWorkbench();
 

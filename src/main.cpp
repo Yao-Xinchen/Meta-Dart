@@ -26,7 +26,7 @@ int main() {
     CameraModule   camera(CAMERA_INDEX);
     VisionModule   vision(camera.buffer());
     ArmModule      arm;
-    DecisionModule decision(vision.buffer(), arm.state_buf(), arm.cmd_buf());
+    DecisionModule decision(vision.buffer(), arm);
 
     // ── Start modules ────────────────────────────────────────────────────
     if (!camera.start()) {
