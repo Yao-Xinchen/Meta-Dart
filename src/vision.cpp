@@ -4,6 +4,7 @@
 #include <chrono>
 #include <thread>
 #include <cstdio>
+#include <cstdlib>
 #include <array>
 
 using namespace std::chrono_literals;
@@ -16,7 +17,21 @@ VisionModule::VisionModule(TripleBuffer<Frame>& camera_buf)
     : camera_buf_(camera_buf)
     , ort_env_(ORT_LOGGING_LEVEL_WARNING, "vision")
     , ort_mem_(Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault))
+    , confidence_threshold_(CONF_THRESHOLD)
 {
+    if (const char* env = std::getenv("META_DART_CONF_THRESHOLD")) {
+        char* end = nullptr;
+        float value = std::strtof(env, &end);
+        if (end != env && value >= 0.0f && value <= 1.0f) {
+            confidence_threshold_ = value;
+        } else {
+            std::fprintf(stderr,
+                "[Vision] WARNING: ignoring invalid META_DART_CONF_THRESHOLD='%s'\n",
+                env);
+        }
+    }
+    std::printf("[Vision] Confidence threshold %.2f\n", confidence_threshold_);
+
     // Gracefully fall back to stub mode if the model file is missing.
     std::FILE* f = std::fopen(ONNX_MODEL_PATH, "rb");
     if (!f) {
@@ -93,7 +108,7 @@ VisionModule::OBBResult VisionModule::postprocess(const float* data,
     OBBResult best;
     for (int64_t d = 0; d < n_anchors; ++d) {
         float conf = data[4 * n_anchors + d];
-        if (conf < CONF_THRESHOLD || conf <= best.conf) continue;
+        if (conf < confidence_threshold_ || conf <= best.conf) continue;
         best.valid = true;
         best.cx    = data[0 * n_anchors + d];
         best.cy    = data[1 * n_anchors + d];

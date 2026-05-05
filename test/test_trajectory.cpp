@@ -25,7 +25,9 @@
 using namespace std::chrono_literals;
 
 // ── tunables ──────────────────────────────────────────────────────────────────
-static constexpr float MOVE_DURATION = 3.0f;  // seconds per step
+static constexpr float MIN_MOVE_DURATION = 1.5f;
+static constexpr float MAX_MOVE_DURATION = 7.0f;
+static constexpr float JOINT_CRUISE_SPEED_RAD_S = 0.60f;
 static constexpr auto  MOVE_TIMEOUT  = 15s;
 
 static const std::vector<std::string> DEFAULT_TRAJECTORY = {
@@ -94,6 +96,23 @@ static void send_joints(ArmModule& arm, const std::array<float, 4>& joints, floa
 {
     arm.move_joints(joints, duration);
     std::this_thread::sleep_for(std::chrono::milliseconds(1000 / ARM_LOOP_HZ + 5));
+}
+
+static float clampf(float value, float lo, float hi)
+{
+    if (value < lo) return lo;
+    if (value > hi) return hi;
+    return value;
+}
+
+static float duration_for_segment(const std::array<float, 4>& from,
+                                  const std::array<float, 4>& to)
+{
+    float max_delta = 0.f;
+    for (int i = 0; i < 4; ++i)
+        max_delta = std::max(max_delta, std::abs(to[i] - from[i]));
+    return clampf(max_delta / JOINT_CRUISE_SPEED_RAD_S,
+                  MIN_MOVE_DURATION, MAX_MOVE_DURATION);
 }
 
 static void print_joints(const char* label, const std::array<float, 4>& j)
@@ -169,9 +188,12 @@ int main(int argc, char* argv[])
 
         std::printf("[%zu/%zu] → %s\n", i + 1, trajectory.size(), name.c_str());
         print_joints("target:", target);
-        print_joints("current:", poll_state(arm).joints);
+        auto current = poll_state(arm).joints;
+        print_joints("current:", current);
 
-        send_joints(arm, target, MOVE_DURATION);
+        const float duration = duration_for_segment(current, target);
+        std::printf("  duration:  %.2fs\n", duration);
+        send_joints(arm, target, duration);
         if (!wait_goal(arm)) {
             auto stuck = poll_state(arm).joints;
             std::fprintf(stderr, "ERROR: timed out at step '%s'\n", name.c_str());

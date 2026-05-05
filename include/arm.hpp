@@ -35,7 +35,9 @@ public:
 
     // Command interface
     void move_joints(const std::array<float, 4>& joints, float duration = 0.f);
+    void servo_joints(const std::array<float, 4>& joints);
     bool move_to(const std::string& name, float duration = 0.f);
+    bool get_position(const std::string& name, std::array<float, 4>& out) const;
     void grip();
     void release();
     void idle();
@@ -70,6 +72,11 @@ private:
 
     // Last-read joint positions (used as interpolation start)
     std::array<float, 4>   current_joints_ = {};
+
+    // Last commanded joint setpoints, used to avoid tiny goal-write chatter
+    std::array<float, 4>   last_goal_sent_ = {};
+    bool                   last_goal_sent_valid_ = false;
+    std::chrono::steady_clock::time_point last_goal_write_time_{};
 
     // Named positions loaded from XML
     std::map<std::string, std::array<float, 4>> positions_;
