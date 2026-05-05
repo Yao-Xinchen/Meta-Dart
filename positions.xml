@@ -16,4 +16,5 @@
   <position name="s3_pulled_out" j1="-5.4165" j2="0.3850" j3="-0.1012" j4="1.0201"/>
   <position name="s2_prep" j1="-5.9120" j2="0.2010" j3="-0.2700" j4="1.3929"/>
   <position name="s3_prep" j1="-5.3766" j2="0.3329" j3="-0.2025" j4="1.2303"/>
+  <position name="high_prep" j1="-3.0971" j2="0.3007" j3="-0.2117" j4="0.8084"/>
 </positions>

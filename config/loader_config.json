@@ -1,10 +1,12 @@
 {
   "vision": {
-    "confidence_threshold": 0.25
+    "confidence_threshold": 0.2
   },
   "decision": {
-    "stable_dart_time_s": 2.0,
-    "reset_cooldown_s": 2.0,
+    "stable_dart_time_s": 1.0,
+    "search_stability_grace_s": 0.45,
+    "search_stability_bbox_margin_m": 0.005,
+    "reset_cooldown_s": 0.0,
     "search_wait_pose": "backward_prep",
     "search_ready_sequence": [
       "home",
@@ -15,18 +17,43 @@
     "min_segment_duration_s": 2.0,
     "max_segment_duration_s": 9.0,
     "joint_cruise_speed_rad_s": 0.45,
+    "fast_motion_speedup": 1.6,
     "flythrough_joint_threshold_rad": 0.12,
     "move_timeout_s": 15.0,
     "gripper_settle_s": 1.0,
     "waypoint_settle_ms": 300.0,
+    "loading_release_tolerance_rad": 0.25,
+    "emergency_home_duration_s": 1.2,
+    "pickup_mode": "disturb",
+    "monitor_dart_motion_during_pickup": true,
+    "pickup_motion_bbox_margin_m": 0.012,
+    "pickup_motion_outside_grace_s": 0.20,
+    "dart_motion_hold_s": 5.0,
+    "relocation_window_s": 4.0,
+    "relocation_stable_time_s": 1.0,
+    "relocation_outside_grace_s": 0.45,
+    "relocation_bbox_margin_m": 0.010,
+    "relocation_accept_same_slot": false,
     "zones": [
+      {
+        "name": "slot_0",
+        "center_x": -0.112,
+        "center_y": -0.020,
+        "half_width": 0.020,
+        "half_height": 0.020,
+        "trajectory": "slot_0",
+        "pickup_half_width": 0.035,
+        "pickup_half_height": 0.050
+      },
       {
         "name": "slot_1",
         "center_x": -0.062,
         "center_y": 0.029,
-        "half_width": 0.020,
-        "half_height": 0.020,
-        "trajectory": "slot_1"
+        "half_width": 0.030,
+        "half_height": 0.030,
+        "trajectory": "slot_1",
+        "pickup_half_width": 0.035,
+        "pickup_half_height": 0.050
       },
       {
         "name": "slot_2",
@@ -34,7 +61,9 @@
         "center_y": 0.026,
         "half_width": 0.020,
         "half_height": 0.020,
-        "trajectory": "slot_2"
+        "trajectory": "slot_2",
+        "pickup_half_width": 0.035,
+        "pickup_half_height": 0.050
       },
       {
         "name": "slot_3",
@@ -42,7 +71,10 @@
         "center_y": -0.008,
         "half_width": 0.020,
         "half_height": 0.020,
-        "trajectory": "slot_3"
+        "trajectory": "slot_3",
+        "pickup_half_width": 0.055,
+        "pickup_half_height": 0.075,
+        "pickup_outside_grace_s": 0.40
       }
     ],
     "trajectories": {
@@ -53,7 +85,8 @@
         {"position": "backward_prep", "gripper": "none"},
         {"position": "forward_prep", "gripper": "none"},
         {"position": "loading", "gripper": "open"},
-        {"position": "home", "gripper": "none"}
+        {"position": "high_prep", "gripper": "none"},
+        {"position": "backward_prep", "gripper": "none"}
       ],
       "slot_1": [
         {"position": "s1_prep", "gripper": "open"},
@@ -62,7 +95,8 @@
         {"position": "backward_prep", "gripper": "none"},
         {"position": "forward_prep", "gripper": "none"},
         {"position": "loading", "gripper": "open"},
-        {"position": "home", "gripper": "none"}
+        {"position": "high_prep", "gripper": "none"},
+        {"position": "backward_prep", "gripper": "none"}
       ],
       "slot_2": [
         {"position": "s2_prep", "gripper": "open"},
@@ -71,7 +105,8 @@
         {"position": "backward_prep", "gripper": "none"},
         {"position": "forward_prep", "gripper": "none"},
         {"position": "loading", "gripper": "open"},
-        {"position": "home", "gripper": "none"}
+        {"position": "high_prep", "gripper": "none"},
+        {"position": "backward_prep", "gripper": "none"}
       ],
       "slot_3": [
         {"position": "s3_prep", "gripper": "open"},
@@ -80,7 +115,8 @@
         {"position": "backward_prep", "gripper": "none"},
         {"position": "forward_prep", "gripper": "none"},
         {"position": "loading", "gripper": "open"},
-        {"position": "home", "gripper": "none"}
+        {"position": "high_prep", "gripper": "none"},
+        {"position": "backward_prep", "gripper": "none"}
       ]
     }
   }

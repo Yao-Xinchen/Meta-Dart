@@ -1,5 +1,6 @@
 #include "arm.hpp"
 #include "config.hpp"
+#include "log.hpp"
 
 #include <DynamixelWorkbench.h>
 
@@ -56,21 +57,21 @@ static void write_joint_softness(DynamixelWorkbench* wb, uint8_t id)
     const char* log = nullptr;
 
     if (!wb->itemWrite(id, "Profile_Acceleration", JOINT_PROFILE_ACCELERATION, &log))
-        std::fprintf(stderr, "[Arm] warn: failed to set Profile_Acceleration for ID %u: %s\n",
-                     id, log ? log : "?");
+        mdlog::warn("Arm", "failed to set Profile_Acceleration for ID %u: %s",
+                    id, log ? log : "?");
     if (!wb->itemWrite(id, "Profile_Velocity", JOINT_PROFILE_VELOCITY, &log))
-        std::fprintf(stderr, "[Arm] warn: failed to set Profile_Velocity for ID %u: %s\n",
-                     id, log ? log : "?");
+        mdlog::warn("Arm", "failed to set Profile_Velocity for ID %u: %s",
+                    id, log ? log : "?");
 
     if (!wb->itemWrite(id, "Position_P_Gain", JOINT_POSITION_P_GAIN, &log))
-        std::fprintf(stderr, "[Arm] warn: failed to set Position_P_Gain for ID %u: %s\n",
-                     id, log ? log : "?");
+        mdlog::warn("Arm", "failed to set Position_P_Gain for ID %u: %s",
+                    id, log ? log : "?");
     if (!wb->itemWrite(id, "Position_I_Gain", JOINT_POSITION_I_GAIN, &log))
-        std::fprintf(stderr, "[Arm] warn: failed to set Position_I_Gain for ID %u: %s\n",
-                     id, log ? log : "?");
+        mdlog::warn("Arm", "failed to set Position_I_Gain for ID %u: %s",
+                    id, log ? log : "?");
     if (!wb->itemWrite(id, "Position_D_Gain", JOINT_POSITION_D_GAIN, &log))
-        std::fprintf(stderr, "[Arm] warn: failed to set Position_D_Gain for ID %u: %s\n",
-                     id, log ? log : "?");
+        mdlog::warn("Arm", "failed to set Position_D_Gain for ID %u: %s",
+                    id, log ? log : "?");
 }
 
 static constexpr std::chrono::microseconds LOOP_PERIOD{1'000'000 / ARM_LOOP_HZ};
@@ -86,7 +87,7 @@ bool ArmModule::load_positions(const char* xml_path)
 {
     std::ifstream f(xml_path);
     if (!f) {
-        std::fprintf(stderr, "[Arm] cannot open positions file: %s\n", xml_path);
+        mdlog::error("Arm", "cannot open positions file: %s", xml_path);
         return false;
     }
     auto get_attr = [](const std::string& line, const std::string& attr) -> std::string {
@@ -107,7 +108,7 @@ bool ArmModule::load_positions(const char* xml_path)
         j[3] = std::stof(get_attr(line, "j4"));
         positions_[name] = j;
     }
-    std::printf("[Arm] loaded %zu position(s) from %s\n", positions_.size(), xml_path);
+    mdlog::ok("Arm", "loaded %zu position(s) from %s", positions_.size(), xml_path);
     return true;
 }
 
@@ -115,7 +116,7 @@ bool ArmModule::move_to(const std::string& name, float duration)
 {
     auto it = positions_.find(name);
     if (it == positions_.end()) {
-        std::fprintf(stderr, "[Arm] unknown position: '%s'\n", name.c_str());
+        mdlog::error("Arm", "unknown position: '%s'", name.c_str());
         return false;
     }
     move_joints(it->second, duration);
@@ -182,7 +183,7 @@ bool ArmModule::start() {
     dxl_wb_ = new DynamixelWorkbench();
 
     if (!dxl_wb_->init(DXL_PORT, DXL_BAUD, &log)) {
-        std::fprintf(stderr, "[Arm] init failed: %s\n", log ? log : "?");
+        mdlog::error("Arm", "init failed: %s", log ? log : "?");
         delete dxl_wb_;
         dxl_wb_ = nullptr;
 
@@ -199,13 +200,13 @@ bool ArmModule::start() {
     bool all_motors_ok = true;
     for (uint8_t id : ALL_IDS) {
         if (!dxl_wb_->ping(id, &model, &log)) {
-            std::fprintf(stderr, "[Arm] ping failed for ID %u: %s\n", id, log ? log : "?");
+            mdlog::error("Arm", "ping failed for ID %u: %s", id, log ? log : "?");
             all_motors_ok = false;
         }
     }
 
     if (!all_motors_ok) {
-        std::fprintf(stderr, "[Arm] one or more motors reported errors; refusing to enable torque\n");
+        mdlog::error("Arm", "one or more motors reported errors; refusing to enable torque");
         delete dxl_wb_;
         dxl_wb_ = nullptr;
 

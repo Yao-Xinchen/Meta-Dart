@@ -48,6 +48,26 @@ void read_string(const cv::FileNode& parent, const char* key, std::string& out)
         out = static_cast<std::string>(node);
 }
 
+void read_bool(const cv::FileNode& parent, const char* key, bool& out)
+{
+    const cv::FileNode node = parent[key];
+    if (node.empty())
+        return;
+
+    if (node.isInt()) {
+        out = ((int)node) != 0;
+        return;
+    }
+
+    if (node.isString()) {
+        const std::string value = lower_copy(static_cast<std::string>(node));
+        if (value == "true" || value == "yes" || value == "1")
+            out = true;
+        else if (value == "false" || value == "no" || value == "0")
+            out = false;
+    }
+}
+
 void read_string_sequence(const cv::FileNode& parent,
                           const char* key,
                           std::vector<std::string>& out)
@@ -83,6 +103,9 @@ void read_zones(const cv::FileNode& parent, DecisionRuntimeConfig& decision)
         read_float(item, "half_width", zone.half_w);
         read_float(item, "half_height", zone.half_h);
         read_string(item, "trajectory", zone.trajectory);
+        read_float(item, "pickup_half_width", zone.pickup_half_w);
+        read_float(item, "pickup_half_height", zone.pickup_half_h);
+        read_float(item, "pickup_outside_grace_s", zone.pickup_outside_grace_s);
 
         if (!zone.name.empty() && !zone.trajectory.empty())
             zones.push_back(zone);
@@ -162,7 +185,8 @@ RuntimeConfig make_default_runtime_config()
         {"backward_prep", GripperAction::None},
         {"forward_prep",  GripperAction::None},
         {"loading",       GripperAction::Open},
-        {"home",          GripperAction::None},
+        {"high_prep",     GripperAction::None},
+        {"backward_prep", GripperAction::None},
     };
 
     auto make_slot = [&](const char* prefix) {
@@ -181,6 +205,26 @@ RuntimeConfig make_default_runtime_config()
     config.decision.trajectories["slot_3"] = make_slot("s3");
 
     return config;
+}
+
+bool set_pickup_mode(DecisionRuntimeConfig& decision,
+                     const std::string& mode,
+                     std::string& error)
+{
+    const std::string value = lower_copy(mode);
+    if (value == "disturb" || value == "adaptive") {
+        decision.pickup_mode = "disturb";
+        decision.monitor_dart_motion_during_pickup = true;
+        return true;
+    }
+    if (value == "replay" || value == "trajectory_replay" || value == "trajectory-replay") {
+        decision.pickup_mode = "replay";
+        decision.monitor_dart_motion_during_pickup = false;
+        return true;
+    }
+
+    error = "invalid pickup_mode '" + mode + "'; expected 'disturb' or 'replay'";
+    return false;
 }
 
 bool load_runtime_config_json(const std::string& path,
@@ -207,15 +251,48 @@ bool load_runtime_config_json(const std::string& path,
     const cv::FileNode decision = fs["decision"];
     if (!decision.empty() && decision.isMap()) {
         read_float(decision, "stable_dart_time_s", config.decision.stable_dart_time_s);
+        read_float(decision, "search_stability_grace_s",
+                   config.decision.search_stability_grace_s);
+        read_float(decision, "search_stability_bbox_margin_m",
+                   config.decision.search_stability_bbox_margin_m);
         read_float(decision, "homing_move_duration_s", config.decision.homing_move_duration_s);
         read_float(decision, "min_segment_duration_s", config.decision.min_segment_duration_s);
         read_float(decision, "max_segment_duration_s", config.decision.max_segment_duration_s);
         read_float(decision, "joint_cruise_speed_rad_s", config.decision.joint_cruise_speed_rad_s);
+        read_float(decision, "fast_motion_speedup", config.decision.fast_motion_speedup);
         read_float(decision, "flythrough_joint_threshold_rad", config.decision.flythrough_joint_threshold_rad);
         read_float(decision, "move_timeout_s", config.decision.move_timeout_s);
         read_float(decision, "gripper_settle_s", config.decision.gripper_settle_s);
         read_float(decision, "waypoint_settle_ms", config.decision.waypoint_settle_ms);
+        read_float(decision, "loading_release_tolerance_rad",
+                   config.decision.loading_release_tolerance_rad);
+        read_float(decision, "emergency_home_duration_s",
+                   config.decision.emergency_home_duration_s);
         read_float(decision, "reset_cooldown_s", config.decision.reset_cooldown_s);
+        read_bool(decision, "monitor_dart_motion_during_pickup",
+                  config.decision.monitor_dart_motion_during_pickup);
+        std::string pickup_mode;
+        read_string(decision, "pickup_mode", pickup_mode);
+        if (!pickup_mode.empty() &&
+            !set_pickup_mode(config.decision, pickup_mode, error))
+            return false;
+        if (pickup_mode.empty()) {
+            config.decision.pickup_mode =
+                config.decision.monitor_dart_motion_during_pickup ? "disturb" : "replay";
+        }
+        read_float(decision, "pickup_motion_bbox_margin_m",
+                   config.decision.pickup_motion_bbox_margin_m);
+        read_float(decision, "pickup_motion_outside_grace_s",
+                   config.decision.pickup_motion_outside_grace_s);
+        read_float(decision, "dart_motion_hold_s", config.decision.dart_motion_hold_s);
+        read_float(decision, "relocation_window_s", config.decision.relocation_window_s);
+        read_float(decision, "relocation_stable_time_s", config.decision.relocation_stable_time_s);
+        read_float(decision, "relocation_outside_grace_s",
+                   config.decision.relocation_outside_grace_s);
+        read_float(decision, "relocation_bbox_margin_m",
+                   config.decision.relocation_bbox_margin_m);
+        read_bool(decision, "relocation_accept_same_slot",
+                  config.decision.relocation_accept_same_slot);
         read_string(decision, "search_wait_pose", config.decision.search_wait_pose);
         read_string_sequence(decision, "search_ready_sequence", config.decision.search_ready_sequence);
         read_zones(decision, config.decision);

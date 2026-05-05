@@ -1,11 +1,13 @@
 #include "vision.hpp"
 #include "config.hpp"
+#include "log.hpp"
 
 #include <chrono>
 #include <thread>
 #include <cstdio>
 #include <cstdlib>
 #include <array>
+#include <csignal>
 
 using namespace std::chrono_literals;
 
@@ -26,19 +28,16 @@ VisionModule::VisionModule(TripleBuffer<Frame>& camera_buf,
         if (end != env && value >= 0.0f && value <= 1.0f) {
             confidence_threshold_ = value;
         } else {
-            std::fprintf(stderr,
-                "[Vision] WARNING: ignoring invalid META_DART_CONF_THRESHOLD='%s'\n",
-                env);
+            mdlog::warn("Vision", "ignoring invalid META_DART_CONF_THRESHOLD='%s'", env);
         }
     }
-    std::printf("[Vision] Confidence threshold %.2f\n", confidence_threshold_);
+    mdlog::info("Vision", "confidence threshold %.2f", confidence_threshold_);
 
     // Gracefully fall back to stub mode if the model file is missing.
     std::FILE* f = std::fopen(ONNX_MODEL_PATH, "rb");
     if (!f) {
-        std::fprintf(stderr,
-            "[Vision] WARNING: ONNX model not found at '%s'. "
-            "Running in stub mode (no detections).\n", ONNX_MODEL_PATH);
+        mdlog::warn("Vision", "ONNX model not found at '%s'; running in stub mode",
+                    ONNX_MODEL_PATH);
         return;
     }
     std::fclose(f);
@@ -50,11 +49,10 @@ VisionModule::VisionModule(TripleBuffer<Frame>& camera_buf,
     try {
         ort_session_ = Ort::Session(ort_env_, ONNX_MODEL_PATH, opts);
         model_loaded_ = true;
-        std::printf("[Vision] ONNX model loaded from '%s'\n", ONNX_MODEL_PATH);
+        mdlog::ok("Vision", "ONNX model loaded from '%s'", ONNX_MODEL_PATH);
     } catch (const Ort::Exception& e) {
-        std::fprintf(stderr,
-            "[Vision] Failed to load ONNX model: %s. Running in stub mode.\n",
-            e.what());
+        mdlog::error("Vision", "failed to load ONNX model: %s; running in stub mode",
+                     e.what());
     }
 }
 
@@ -150,6 +148,7 @@ void VisionModule::loop()
     const std::array<int64_t, 4> input_shape{1, 3, YOLO_INPUT_H, YOLO_INPUT_W};
     const char* input_name  = "images";
     const char* output_name = "output0";
+    bool window_initialized = false;
 
     Frame     frame;
     Detection det;
@@ -229,8 +228,16 @@ void VisionModule::loop()
                                 cv::Scalar(255, 255, 0), 2);
                 }
 
-                cv::imshow("Vision", vis);
-                cv::waitKey(1);
+                if (!window_initialized) {
+                    cv::namedWindow(VISION_WINDOW_NAME, cv::WINDOW_NORMAL);
+                    cv::resizeWindow(VISION_WINDOW_NAME, VISION_WINDOW_W, VISION_WINDOW_H);
+                    window_initialized = true;
+                }
+
+                cv::imshow(VISION_WINDOW_NAME, vis);
+                const int key = cv::waitKey(1);
+                if (key == 'q' || key == 'Q')
+                    std::raise(SIGUSR1);
                 dt_vis = ms(Clock::now() - tv0);
             }
         }
@@ -245,13 +252,9 @@ void VisionModule::loop()
 
         if (VISION_TIMING_DEBUG && ++stat_n == N_STAT) {
             double n = N_STAT;
-            std::printf("[Vision timing over %d frames]  "
-                        "pre=%.1fms  infer=%.1fms  vis=%.1fms  "
-                        "total=%.1fms  budget=%.1fms\n",
-                        N_STAT,
-                        sum_pre / n, sum_infer / n, sum_vis / n,
-                        sum_total / n,
-                        ms(period));
+            mdlog::info("Vision", "timing %d frames: pre=%.1fms infer=%.1fms vis=%.1fms total=%.1fms budget=%.1fms",
+                        N_STAT, sum_pre / n, sum_infer / n, sum_vis / n,
+                        sum_total / n, ms(period));
             stat_n = sum_pre = sum_infer = sum_vis = sum_total = 0;
         }
 

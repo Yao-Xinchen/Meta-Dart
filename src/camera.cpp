@@ -1,5 +1,6 @@
 #include "camera.hpp"
 #include "config.hpp"
+#include "log.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -32,15 +33,16 @@ void CameraModule::stop() {
 void CameraModule::loop() {
     cv::VideoCapture cap(device_index_, cv::CAP_V4L2);
     if (!cap.isOpened()) {
-        std::fprintf(stderr, "[Camera] Failed to open device %d\n", device_index_);
+        mdlog::error("Camera", "failed to open device %d", device_index_);
         running_ = false;
         return;
     }
+    mdlog::ok("Camera", "opened /dev/video%d", device_index_);
 
     Frame frame;
     while (running_) {
         if (!cap.read(frame.image)) {
-            std::fprintf(stderr, "[Camera] Failed to read frame\n");
+            mdlog::error("Camera", "failed to read frame");
             break;
         }
         frame.timestamp_us = now_us();
