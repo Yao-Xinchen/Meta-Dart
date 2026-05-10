@@ -61,7 +61,6 @@ private:
                                std::chrono::milliseconds timeout,
                                int monitor_zone_index);
     MoveResult move_to_and_wait(const std::string& name,
-                                float duration,
                                 bool stop_at_goal = true,
                                 int monitor_zone_index = -1);
     bool move_to_loading_and_release();

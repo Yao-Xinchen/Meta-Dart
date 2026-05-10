@@ -219,12 +219,9 @@ DecisionModule::MoveResult DecisionModule::wait_until_near(const std::array<floa
 }
 
 DecisionModule::MoveResult DecisionModule::move_to_and_wait(const std::string& name,
-                                                            float fallback_duration,
                                                             bool stop_at_goal,
                                                             int monitor_zone_index)
 {
-    (void)fallback_duration;
-
     ArmState state{};
     std::array<float, 4> target{};
 
@@ -387,7 +384,6 @@ bool DecisionModule::move_to_search_pose()
     for (size_t i = 0; i < config_.search_ready_sequence.size(); ++i) {
         const bool last_step = (i + 1 == config_.search_ready_sequence.size());
         if (move_to_and_wait(config_.search_ready_sequence[i],
-                             config_.homing_move_duration_s,
                              last_step) != MoveResult::Arrived)
             return false;
     }
@@ -479,6 +475,7 @@ bool DecisionModule::wait_for_relocated_dart(int previous_zone_index, int& out_z
 
     out_zone_index = -1;
     hold_current_joints();
+    sleep_interruptible(seconds_to_ms(config_.dart_motion_hold_s));
 
     const auto window = seconds_to_ms(config_.relocation_window_s);
     const auto stable_time = seconds_to_ms(config_.relocation_stable_time_s);
@@ -550,6 +547,7 @@ bool DecisionModule::wait_for_relocated_dart(int previous_zone_index, int& out_z
 DecisionModule::PickupResult DecisionModule::execute_pickup_trajectory(int zone_index)
 {
     int current_zone_index = zone_index;
+    pickup_outside_zone_index_ = -1;
 
     while (running_) {
         if (current_zone_index < 0 ||
@@ -593,7 +591,6 @@ DecisionModule::PickupResult DecisionModule::execute_pickup_trajectory(int zone_
                 : -1;
 
             const MoveResult move_result = move_to_and_wait(step.position,
-                                                            config_.homing_move_duration_s,
                                                             stop_at_goal,
                                                             monitor_zone_index);
             if (move_result == MoveResult::DartMoved) {
@@ -603,7 +600,6 @@ DecisionModule::PickupResult DecisionModule::execute_pickup_trajectory(int zone_
                                    config_.search_wait_pose.c_str(),
                                    config_.zones[new_zone_index].name.c_str());
                     const MoveResult via_result = move_to_and_wait(config_.search_wait_pose,
-                                                                    config_.homing_move_duration_s,
                                                                     false,
                                                                     -1);
                     if (via_result != MoveResult::Arrived)
@@ -614,8 +610,7 @@ DecisionModule::PickupResult DecisionModule::execute_pickup_trajectory(int zone_
                     break;
                 }
 
-                const MoveResult safe_result = move_to_and_wait(config_.search_wait_pose,
-                                                                config_.homing_move_duration_s);
+                const MoveResult safe_result = move_to_and_wait(config_.search_wait_pose);
                 return safe_result == MoveResult::Arrived
                     ? PickupResult::AbortedToSearchPose
                     : PickupResult::Failed;
@@ -798,7 +793,7 @@ void DecisionModule::loop() {
                 state_ = State::Searching;
             } else if (running_) {
                 mdlog::error("Decision", "pickup failed; returning home");
-                move_to_and_wait("home", config_.homing_move_duration_s);
+                move_to_and_wait("home");
                 state_ = State::Idle;
             }
             break;
