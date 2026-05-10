@@ -2,6 +2,7 @@
 #include "camera.hpp"
 #include "vision.hpp"
 #include "arm.hpp"
+#include "spring_stretcher.hpp"
 #include "decision.hpp"
 
 #include <csignal>
@@ -26,7 +27,8 @@ int main() {
     CameraModule   camera(CAMERA_INDEX);
     VisionModule   vision(camera.buffer());
     ArmModule      arm;
-    DecisionModule decision(vision.buffer(), arm);
+    SpringStretcherModule spring_stretcher;
+    DecisionModule        decision(vision.buffer(), arm, spring_stretcher);
 
     // ── Start modules ────────────────────────────────────────────────────
     if (!camera.start()) {
@@ -39,6 +41,10 @@ int main() {
     if (!arm.start()) {
         std::fprintf(stderr, "[Main] Arm failed to start — running in camera-only mode\n");
         // Continue without the arm so vision can still be tested
+    }
+
+    if (!spring_stretcher.start()) {
+        std::fprintf(stderr, "[Main] Spring stretcher failed to start; triggerless shooting disabled\n");
     }
 
     decision.start();
@@ -54,6 +60,7 @@ int main() {
     // ── Shutdown in reverse order ─────────────────────────────────────────
     std::printf("\n[Main] Shutting down...\n");
     decision.stop();
+    spring_stretcher.stop();
     arm.stop();
     vision.stop();
     camera.stop();

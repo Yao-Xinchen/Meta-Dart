@@ -36,3 +36,25 @@ struct ArmState {
     bool  reached_goal = false;
     bool  hw_ok        = false;         // false if Dynamixel init failed
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Decision → spring stretcher motors
+// ─────────────────────────────────────────────────────────────────────────────
+struct SpringStretcherCmd {
+    enum class Type {
+        Idle,
+        Stretch,    // pull both springs to the configured stretched positions
+        Retract,    // return both motors to their zero/home positions
+    } type = Type::Idle;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Spring stretcher motors → Decision
+// ─────────────────────────────────────────────────────────────────────────────
+struct SpringStretcherState {
+    std::array<float, 2> position = {};  // left/right cumulative motor angle [rad]
+    std::array<float, 2> velocity = {};  // left/right motor velocity [rad/s]
+    std::array<float, 2> current  = {};  // left/right command/feedback current [A]
+    bool reached_goal = false;
+    bool hw_ok        = false;
+};

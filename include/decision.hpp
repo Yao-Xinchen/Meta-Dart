@@ -7,13 +7,14 @@
 #include <thread>
 
 class ArmModule;
+class SpringStretcherModule;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DecisionModule — pick-and-place state machine
 //
-//  IDLE ──► SEARCHING ──► MOVING_TO_PICK ──► PICKING
-//                                                │
-//  IDLE ◄── PLACING ◄── MOVING_TO_PLACE ◄────────┘
+//  IDLE -> SEARCHING -> MOVING_TO_PICK -> PICKING
+//                                           |
+//  READY_TO_SHOOT <- STRETCHING_SPRINGS <- PLACING <- MOVING_TO_PLACE
 //
 // The module waits in SEARCHING until VisionModule provides a valid Detection.
 // It then commands the arm by name, waits for goal_reached, closes the gripper,
@@ -21,7 +22,9 @@ class ArmModule;
 // ─────────────────────────────────────────────────────────────────────────────
 class DecisionModule {
 public:
-    DecisionModule(TripleBuffer<Detection>& detection_buf, ArmModule& arm);
+    DecisionModule(TripleBuffer<Detection>& detection_buf,
+                   ArmModule& arm,
+                   SpringStretcherModule& spring_stretcher);
     ~DecisionModule();
 
     bool start();
@@ -35,6 +38,8 @@ private:
         Picking,
         MovingToPlace,
         Placing,
+        StretchingSprings,
+        ReadyToShoot,
     };
 
     void loop();
@@ -42,6 +47,7 @@ private:
 
     TripleBuffer<Detection>& detection_buf_;
     ArmModule&               arm_;
+    SpringStretcherModule&   spring_stretcher_;
 
     std::thread       thread_;
     std::atomic<bool> running_{false};

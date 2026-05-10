@@ -1,5 +1,6 @@
 #include "decision.hpp"
 #include "arm.hpp"
+#include "spring_stretcher.hpp"
 #include "config.hpp"
 
 #include <chrono>
@@ -10,9 +11,12 @@ using namespace std::chrono_literals;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-DecisionModule::DecisionModule(TripleBuffer<Detection>& detection_buf, ArmModule& arm)
+DecisionModule::DecisionModule(TripleBuffer<Detection>& detection_buf,
+                               ArmModule& arm,
+                               SpringStretcherModule& spring_stretcher)
     : detection_buf_(detection_buf)
     , arm_(arm)
+    , spring_stretcher_(spring_stretcher)
 {}
 
 DecisionModule::~DecisionModule() { stop(); }
@@ -38,7 +42,9 @@ void DecisionModule::loop() {
 
     Detection det;
     ArmState  arm_state{};
+    SpringStretcherState spring_stretcher_state{};
     State     prev_state = State::Idle;
+    auto      state_enter_time = Clock::now();
 
     arm_.move_to("home");
     state_ = State::Searching;
@@ -48,11 +54,16 @@ void DecisionModule::loop() {
 
         detection_buf_.read(det);
         arm_.read_state(arm_state);
+        spring_stretcher_.read_state(spring_stretcher_state);
 
         if (state_ != prev_state) {
             std::printf("[Decision] → %s\n", state_name(state_));
             prev_state = state_;
+            state_enter_time = Clock::now();
         }
+
+        const float state_age =
+            std::chrono::duration<float>(Clock::now() - state_enter_time).count();
 
         switch (state_) {
 
@@ -75,7 +86,7 @@ void DecisionModule::loop() {
             break;
 
         case State::Picking:
-            if (arm_state.reached_goal) {
+            if (state_age >= GRIPPER_SETTLE_TIME_S) {
                 arm_.move_to("place");
                 state_ = State::MovingToPlace;
             }
@@ -89,8 +100,25 @@ void DecisionModule::loop() {
             break;
 
         case State::Placing:
-            arm_.move_to("home");
-            state_ = State::Searching;
+            if (state_age >= GRIPPER_SETTLE_TIME_S) {
+                if (spring_stretcher_state.hw_ok) {
+                    spring_stretcher_.stretch();
+                    state_ = State::StretchingSprings;
+                } else {
+                    arm_.move_to("home");
+                    state_ = State::Searching;
+                }
+            }
+            break;
+
+        case State::StretchingSprings:
+            if (spring_stretcher_state.reached_goal) {
+                arm_.move_to("home");
+                state_ = State::ReadyToShoot;
+            }
+            break;
+
+        case State::ReadyToShoot:
             break;
         }
 
@@ -106,6 +134,8 @@ const char* DecisionModule::state_name(State s) const {
     case State::Picking:        return "PICKING";
     case State::MovingToPlace:  return "MOVING_TO_PLACE";
     case State::Placing:        return "PLACING";
+    case State::StretchingSprings: return "STRETCHING_SPRINGS";
+    case State::ReadyToShoot:   return "READY_TO_SHOOT";
     default:                    return "?";
     }
 }
