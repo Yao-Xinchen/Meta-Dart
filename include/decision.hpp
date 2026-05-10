@@ -11,6 +11,7 @@
 #include <thread>
 
 class ArmModule;
+class SpringStretcherModule;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DecisionModule — stable-detection-triggered pickup state machine
@@ -25,6 +26,7 @@ class DecisionModule {
 public:
     DecisionModule(TripleBuffer<Detection>& detection_buf,
                    ArmModule& arm,
+                   SpringStretcherModule& spring_stretcher,
                    DecisionRuntimeConfig config = DecisionRuntimeConfig{});
     ~DecisionModule();
 
@@ -75,6 +77,7 @@ private:
 
     TripleBuffer<Detection>& detection_buf_;
     ArmModule&               arm_;
+    SpringStretcherModule&   spring_stretcher_;
     DecisionRuntimeConfig    config_;
 
     std::thread       thread_;

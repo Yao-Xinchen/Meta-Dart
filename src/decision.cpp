@@ -1,5 +1,6 @@
 #include "decision.hpp"
 #include "arm.hpp"
+#include "spring_stretcher.hpp"
 #include "config.hpp"
 #include "log.hpp"
 
@@ -128,9 +129,11 @@ bool is_loading_release_step(const DecisionTrajectoryStep& step)
 
 DecisionModule::DecisionModule(TripleBuffer<Detection>& detection_buf,
                                ArmModule& arm,
+                               SpringStretcherModule& spring_stretcher,
                                DecisionRuntimeConfig config)
     : detection_buf_(detection_buf)
     , arm_(arm)
+    , spring_stretcher_(spring_stretcher)
     , config_(std::move(config))
 {}
 
@@ -363,6 +366,14 @@ bool DecisionModule::move_to_loading_and_release()
     }
 
     arm_.release();
+
+    SpringStretcherState ss_state{};
+    spring_stretcher_.read_state(ss_state);
+    if (ss_state.hw_ok) {
+        mdlog::catch_("triggering spring stretcher");
+        spring_stretcher_.stretch();
+    }
+
     return sleep_interruptible(seconds_to_ms(config_.gripper_settle_s));
 }
 
@@ -739,7 +750,11 @@ void DecisionModule::loop() {
                 break;
             }
             prev_state = state_;
+            state_enter_time = Clock::now();
         }
+
+        const float state_age =
+            std::chrono::duration<float>(Clock::now() - state_enter_time).count();
 
         switch (state_) {
         case State::Idle:

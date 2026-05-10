@@ -53,6 +53,7 @@ add_executable(loader
     src/camera.cpp
     src/vision.cpp
     src/arm.cpp
+    src/spring_stretcher.cpp
     src/decision.cpp
     src/runtime_config.cpp
     ${DXL_SDK_SRCS}

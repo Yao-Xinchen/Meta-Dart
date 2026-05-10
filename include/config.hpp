@@ -47,9 +47,11 @@ constexpr int32_t GRIPPER_CURRENT =  200;                  // Goal_Current raw v
 constexpr int ARM_LOOP_HZ          = 100;  // arm control thread rate
 constexpr int VISION_LOOP_HZ       = 30;   // vision thread rate
 constexpr int DECISION_LOOP_HZ     = 10;   // decision thread rate
+constexpr int SPRING_STRETCHER_LOOP_HZ = 500;  // DJI M3508 control thread rate
 
 // Goal-reached threshold [rad]
 constexpr float GOAL_REACHED_THRESH = 0.05f;
+constexpr float GRIPPER_SETTLE_TIME_S = 0.5f;
 
 // ── Arm smoothness / anti-jitter tuning ──────────────────────────────────────
 // X-series Dynamixel raw profile units.  Lower values are gentler but slower.
@@ -69,6 +71,30 @@ constexpr float JOINT_GOAL_WRITE_DEADBAND    = 0.002f;  // rad
 
 // ── Arm positions ─────────────────────────────────────────────────────────────
 constexpr const char* POSITIONS_XML_PATH = "positions.xml";
+
+// ── Dart launcher spring stretcher motors (DJI M3508 over SocketCAN) ─────────
+constexpr const char* SPRING_STRETCHER_CAN_IFACE = "can0";
+constexpr uint8_t SPRING_STRETCHER_LEFT_ID       = 1;     // DJI hardware ID, range 1-8
+constexpr uint8_t SPRING_STRETCHER_RIGHT_ID      = 2;     // DJI hardware ID, range 1-8
+constexpr float SPRING_STRETCHER_LEFT_DIR        = 1.0f;  // flip to -1 if wiring is mirrored
+constexpr float SPRING_STRETCHER_RIGHT_DIR       = -1.0f; // opposite side usually mirrors
+
+// Tune these on hardware. The stretch distance is motor output angle in radians.
+constexpr float SPRING_STRETCHER_STRETCH_RAD     = 6.0f;
+constexpr float SPRING_STRETCHER_HOME_RAD        = 0.0f;
+constexpr float SPRING_STRETCHER_POS_TOL_RAD     = 0.08f;
+constexpr float SPRING_STRETCHER_VEL_TOL_RAD_S   = 1.0f;
+constexpr float SPRING_STRETCHER_HOLD_TIME_S     = 0.25f;
+
+// Cascaded position-to-velocity-to-current gains. Feedback current is in amps.
+constexpr float SPRING_STRETCHER_POS_KP          = 35.0f;
+constexpr float SPRING_STRETCHER_POS_KI          = 0.0f;
+constexpr float SPRING_STRETCHER_POS_KD          = 0.0f;
+constexpr float SPRING_STRETCHER_VEL_KP          = 0.6f;
+constexpr float SPRING_STRETCHER_VEL_KI          = 0.0f;
+constexpr float SPRING_STRETCHER_VEL_KD          = 0.0f;
+constexpr float SPRING_STRETCHER_MAX_VEL_RAD_S   = 60.0f;
+constexpr float SPRING_STRETCHER_MAX_CURRENT_A   = 10.0f;
 
 // ── Vision / ONNX ─────────────────────────────────────────────────────────────
 constexpr bool        VISION_TIMING_DEBUG  = false;  // print per-frame timing stats

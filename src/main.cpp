@@ -2,6 +2,7 @@
 #include "camera.hpp"
 #include "vision.hpp"
 #include "arm.hpp"
+#include "spring_stretcher.hpp"
 #include "decision.hpp"
 #include "runtime_config.hpp"
 #include "log.hpp"
@@ -221,7 +222,8 @@ int main(int argc, char* argv[]) {
     CameraModule   camera(CAMERA_INDEX);
     VisionModule   vision(camera.buffer(), runtime_config.vision_confidence_threshold);
     ArmModule      arm;
-    DecisionModule decision(vision.buffer(), arm, runtime_config.decision);
+    SpringStretcherModule spring_stretcher;
+    DecisionModule        decision(vision.buffer(), arm, spring_stretcher, runtime_config.decision);
 
     // ── Start modules ────────────────────────────────────────────────────
     if (!camera.start()) {
@@ -236,6 +238,9 @@ int main(int argc, char* argv[]) {
         mdlog::warn("Main", "arm failed to start; running in camera-only mode");
         // Continue without the arm so vision can still be tested
     }
+
+    if (!spring_stretcher.start())
+        mdlog::warn("Main", "spring stretcher failed to start; shooting disabled");
 
     decision.start();
 
@@ -254,6 +259,7 @@ int main(int argc, char* argv[]) {
     decision.stop();
     if (arm_online && g_keyboard_quit)
         emergency_return_home(arm, runtime_config.decision.emergency_home_duration_s);
+    spring_stretcher.stop();
     arm.stop();
     vision.stop();
     camera.stop();
