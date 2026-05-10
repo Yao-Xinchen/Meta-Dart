@@ -44,7 +44,7 @@ constexpr float GRIPPER_OFFSET    = -0.036099321f;         // m
 constexpr int32_t GRIPPER_CURRENT =  200;                  // Goal_Current raw value
 
 // ── Control loop timing ───────────────────────────────────────────────────────
-constexpr int ARM_LOOP_HZ          = 50;   // arm control thread rate
+constexpr int ARM_LOOP_HZ          = 100;  // arm control thread rate
 constexpr int VISION_LOOP_HZ       = 30;   // vision thread rate
 constexpr int DECISION_LOOP_HZ     = 10;   // decision thread rate
 constexpr int SPRING_STRETCHER_LOOP_HZ = 500;  // DJI M3508 control thread rate
@@ -52,6 +52,22 @@ constexpr int SPRING_STRETCHER_LOOP_HZ = 500;  // DJI M3508 control thread rate
 // Goal-reached threshold [rad]
 constexpr float GOAL_REACHED_THRESH = 0.05f;
 constexpr float GRIPPER_SETTLE_TIME_S = 0.5f;
+
+// ── Arm smoothness / anti-jitter tuning ──────────────────────────────────────
+// X-series Dynamixel raw profile units.  Lower values are gentler but slower.
+// If the arm feels too sluggish, increase velocity first, then acceleration.
+constexpr int32_t JOINT_PROFILE_VELOCITY     = 80;
+constexpr int32_t JOINT_PROFILE_ACCELERATION = 20;
+
+// Position controller gains.  Lower P reduces hunting/shaking at the cost of
+// stiffness.  Defaults on many XM430 setups are much higher.
+constexpr int32_t JOINT_POSITION_P_GAIN      = 350;
+constexpr int32_t JOINT_POSITION_I_GAIN      = 0;
+constexpr int32_t JOINT_POSITION_D_GAIN      = 0;
+
+// Do not spam tiny Goal_Position updates smaller than this amount.  This
+// removes high-frequency setpoint chatter near the beginning/end of S-curves.
+constexpr float JOINT_GOAL_WRITE_DEADBAND    = 0.002f;  // rad
 
 // ── Arm positions ─────────────────────────────────────────────────────────────
 constexpr const char* POSITIONS_XML_PATH = "positions.xml";
@@ -86,6 +102,9 @@ constexpr const char* ONNX_MODEL_PATH     = "models/best.onnx";
 constexpr int         YOLO_INPUT_W        = 640;
 constexpr int         YOLO_INPUT_H        = 640;
 constexpr float       CONF_THRESHOLD      = 0.40f;
+constexpr const char* VISION_WINDOW_NAME  = "Meta-Dart Vision";
+constexpr int         VISION_WINDOW_W     = 1800;
+constexpr int         VISION_WINDOW_H     = 1000;
 
 // Camera intrinsics — replace with cv::calibrateCamera values (pixels, native res)
 constexpr float CAM_FX             = 600.0f;

@@ -19,6 +19,7 @@ struct ArmCmd {
     enum class Type {
         Idle,
         MoveJoint,   // linearly interpolate joints[0..3] over duration seconds
+        ServoJoint,  // send joints[0..3] directly; caller owns trajectory timing
         Grip,        // close gripper
         Release,     // open gripper
     } type = Type::Idle;

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "camera.hpp"
+#include "config.hpp"
 #include "triple_buffer.hpp"
 #include "types.hpp"
 
@@ -20,7 +21,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 class VisionModule {
 public:
-    explicit VisionModule(TripleBuffer<Frame>& camera_buf);
+    explicit VisionModule(TripleBuffer<Frame>& camera_buf,
+                          float confidence_threshold = CONF_THRESHOLD);
     ~VisionModule();
 
     bool start();
@@ -36,7 +38,7 @@ private:
 
     // Parse output0 [1, 6, 8400]: return highest-conf detection above threshold.
     // Attribute layout per anchor d: data[attr * n_anchors + d]
-    //   attr 0: cx, 1: cy, 2: w, 3: h, 4: angle_rad, 5: conf  (all in 640-space)
+    //   attr 0: cx, 1: cy, 2: w, 3: h, 4: conf, 5: angle_rad  (all in 640-space)
     struct OBBResult {
         bool  valid = false;
         float cx = 0.f, cy = 0.f;  // centre in YOLO input (640×640) pixel space
@@ -60,4 +62,5 @@ private:
     Ort::Session    ort_session_{nullptr};
     Ort::MemoryInfo ort_mem_;
     bool            model_loaded_ = false;
+    float           confidence_threshold_ = 0.0f;
 };

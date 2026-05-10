@@ -55,6 +55,7 @@ add_executable(loader
     src/arm.cpp
     src/spring_stretcher.cpp
     src/decision.cpp
+    src/runtime_config.cpp
     ${DXL_SDK_SRCS}
     ${DXL_WB_SRCS}
 )
@@ -75,6 +76,28 @@ target_link_libraries(loader PRIVATE
 target_link_options(loader PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
 target_compile_options(loader PRIVATE -Wall -Wextra -O2)
 
+# ── Vision camera test (no arm, no decision) ──────────────────────────────────
+add_executable(test_vision_camera
+    test/test_vision_camera.cpp
+    src/camera.cpp
+    src/vision.cpp
+)
+
+target_include_directories(test_vision_camera PRIVATE
+    include
+    ${OpenCV_INCLUDE_DIRS}
+    ${ORT_ROOT}/include
+)
+
+target_link_libraries(test_vision_camera PRIVATE
+    ${OpenCV_LIBS}
+    pthread
+    ${ORT_ROOT}/lib/libonnxruntime.so
+)
+
+target_link_options(test_vision_camera PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
+target_compile_options(test_vision_camera PRIVATE -Wall -Wextra -O2)
+
 # ── Arm hardware test ─────────────────────────────────────────────────────────
 add_executable(test_arm test/test_arm.cpp ${ARM_SRCS})
 target_include_directories(test_arm PRIVATE include ${DXL_INCLUDE_DIRS})
@@ -92,6 +115,18 @@ add_executable(test_trajectory test/test_trajectory.cpp ${ARM_SRCS})
 target_include_directories(test_trajectory PRIVATE include ${DXL_INCLUDE_DIRS})
 target_link_libraries(test_trajectory PRIVATE pthread)
 target_compile_options(test_trajectory PRIVATE -Wall -Wextra -O2)
+
+# ── Gripper trajectory test ───────────────────────────────────────────────────
+add_executable(test_gripper_trajectory test/test_gripper_trajectory.cpp ${ARM_SRCS})
+target_include_directories(test_gripper_trajectory PRIVATE include ${DXL_INCLUDE_DIRS})
+target_link_libraries(test_gripper_trajectory PRIVATE pthread)
+target_compile_options(test_gripper_trajectory PRIVATE -Wall -Wextra -O2)
+
+# ── Named position inspector ──────────────────────────────────────────────────
+add_executable(test_named_positions test/test_named_positions.cpp ${ARM_SRCS})
+target_include_directories(test_named_positions PRIVATE include ${DXL_INCLUDE_DIRS})
+target_link_libraries(test_named_positions PRIVATE pthread)
+target_compile_options(test_named_positions PRIVATE -Wall -Wextra -O2)
 
 # ── Position recorder utility ─────────────────────────────────────────────────
 add_executable(record_positions test/record_positions.cpp ${DXL_SDK_SRCS} ${DXL_WB_SRCS})
