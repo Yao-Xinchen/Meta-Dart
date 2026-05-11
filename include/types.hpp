@@ -57,5 +57,6 @@ struct SpringStretcherState {
     std::array<float, 2> velocity = {};  // left/right motor velocity [rad/s]
     std::array<float, 2> current  = {};  // left/right command/feedback current [A]
     bool reached_goal = false;
+    bool calibrated   = false;
     bool hw_ok        = false;
 };

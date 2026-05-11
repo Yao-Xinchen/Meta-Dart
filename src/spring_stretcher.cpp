@@ -47,6 +47,9 @@ bool SpringStretcherModule::start()
         return false;
     }
 
+    calibration_active_ = true;
+    std::printf("[SpringStretcher] calibrating hooks toward top stops\n");
+
     running_ = true;
     thread_ = std::thread(&SpringStretcherModule::loop, this);
     return true;
@@ -169,6 +172,10 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         break;
 
     case SpringStretcherCmd::Type::Stretch:
+        if (!calibrated()) {
+            std::printf("[SpringStretcher] ignoring stretch command until calibration finishes\n");
+            break;
+        }
         for (auto& motor : motors_) {
             motor.target = motor.direction * SPRING_STRETCHER_STRETCH_RAD;
             motor.pos_i = 0.f;
@@ -181,6 +188,10 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         break;
 
     case SpringStretcherCmd::Type::Retract:
+        if (!calibrated()) {
+            std::printf("[SpringStretcher] ignoring retract command until calibration finishes\n");
+            break;
+        }
         for (auto& motor : motors_) {
             motor.target = SPRING_STRETCHER_HOME_RAD;
             motor.pos_i = 0.f;
@@ -228,13 +239,16 @@ void SpringStretcherModule::process_feedback(const can_frame& frame)
                                  static_cast<uint16_t>(frame.data[5]));
 
         const float absolute_pos = static_cast<float>(pos_raw) * M3508_ENCODER_TO_RAD;
-        if (!motor.zeroed) {
-            motor.zero = absolute_pos;
-            motor.position = 0.f;
-            motor.zeroed = true;
+        if (!motor.raw_position_valid) {
+            motor.raw_position = absolute_pos;
+            motor.raw_position_valid = true;
         } else {
-            motor.position += wrap_delta(absolute_pos - motor.zero - motor.position);
+            motor.raw_position += wrap_delta(absolute_pos - motor.raw_position);
         }
+
+        if (motor.zeroed) motor.position = motor.raw_position - motor.zero;
+        else motor.position = 0.f;
+
         motor.velocity = static_cast<float>(vel_raw) * M3508_RPM_TO_RAD_S;
         motor.current = static_cast<float>(cur_raw) * M3508_CURRENT_SCALE_A;
         motor.feedback_ok = true;
@@ -248,6 +262,11 @@ void SpringStretcherModule::update_control()
 
     const float dt = 1.0f / static_cast<float>(SPRING_STRETCHER_LOOP_HZ);
     const bool reached = has_goal_ && goal_reached();
+
+    if (calibration_active_) {
+        update_calibration();
+        return;
+    }
 
     if (retract_after_stretch_) {
         if (reached && stretch_reached_at_ == Clock::time_point{}) {
@@ -289,6 +308,69 @@ void SpringStretcherModule::update_control()
                                 SPRING_STRETCHER_VEL_KI * motor.vel_i +
                                 SPRING_STRETCHER_VEL_KD * vel_d;
         motor.command_current = clamp(motor.command_current, SPRING_STRETCHER_MAX_CURRENT_A);
+    }
+}
+
+void SpringStretcherModule::update_calibration()
+{
+    using Clock = std::chrono::steady_clock;
+    const auto now = Clock::now();
+
+    bool all_done = true;
+
+    for (auto& motor : motors_) {
+        if (motor.zeroed) {
+            motor.command_current = 0.f;
+            continue;
+        }
+
+        all_done = false;
+
+        if (!motor.feedback_ok || !motor.raw_position_valid) {
+            motor.command_current = 0.f;
+            continue;
+        }
+
+        if (motor.calibration_started_at == Clock::time_point{}) {
+            motor.calibration_started_at = now;
+            motor.last_moving_at = now;
+        }
+
+        motor.command_current =
+            clamp(-motor.direction * SPRING_STRETCHER_CALIB_CURRENT_A,
+                  SPRING_STRETCHER_MAX_CURRENT_A);
+
+        if (std::fabs(motor.velocity) > SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S) {
+            motor.last_moving_at = now;
+        }
+
+        const float still_time =
+            std::chrono::duration<float>(now - motor.last_moving_at).count();
+        const float elapsed =
+            std::chrono::duration<float>(now - motor.calibration_started_at).count();
+
+        if (still_time >= SPRING_STRETCHER_CALIB_JAM_TIME_S) {
+            motor.zero = motor.raw_position;
+            motor.position = 0.f;
+            motor.target = SPRING_STRETCHER_HOME_RAD;
+            motor.command_current = 0.f;
+            motor.zeroed = true;
+            std::printf("[SpringStretcher] motor %d top stop found\n", motor.id);
+        } else if (elapsed >= SPRING_STRETCHER_CALIB_TIMEOUT_S) {
+            for (auto& stop_motor : motors_) stop_motor.command_current = 0.f;
+            motor.calibration_failed = true;
+            hw_ok_ = false;
+            calibration_active_ = false;
+            std::fprintf(stderr, "[SpringStretcher] motor %d calibration timed out\n", motor.id);
+            return;
+        }
+    }
+
+    if (all_done || calibrated()) {
+        calibration_active_ = false;
+        has_goal_ = false;
+        retract_after_stretch_ = false;
+        std::printf("[SpringStretcher] calibration complete\n");
     }
 }
 
@@ -337,14 +419,25 @@ void SpringStretcherModule::publish_state()
             state.velocity[i] = motors_[i].velocity;
             state.current[i] = motors_[i].current;
         }
+        state.calibrated = calibrated();
         state.reached_goal = has_goal_ && !retract_after_stretch_ && goal_reached();
     }
 
     state_buf_.write(state);
 }
 
+bool SpringStretcherModule::calibrated() const
+{
+    for (const auto& motor : motors_) {
+        if (!motor.zeroed || motor.calibration_failed) return false;
+    }
+    return true;
+}
+
 bool SpringStretcherModule::goal_reached() const
 {
+    if (!calibrated()) return false;
+
     for (const auto& motor : motors_) {
         if (!motor.feedback_ok) return false;
         if (std::fabs(motor.target - motor.position) > SPRING_STRETCHER_POS_TOL_RAD) return false;

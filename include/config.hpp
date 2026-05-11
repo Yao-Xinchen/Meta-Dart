@@ -86,6 +86,14 @@ constexpr float SPRING_STRETCHER_POS_TOL_RAD     = 0.08f;
 constexpr float SPRING_STRETCHER_VEL_TOL_RAD_S   = 1.0f;
 constexpr float SPRING_STRETCHER_HOLD_TIME_S     = 0.25f;
 
+// Startup calibration: move each spring hook toward the top hard stop and use
+// the jammed position as home/zero. Positive stretch is motor.direction, so
+// calibration moves in the opposite direction.
+constexpr float SPRING_STRETCHER_CALIB_CURRENT_A = 2.0f;
+constexpr float SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S = 0.5f;
+constexpr float SPRING_STRETCHER_CALIB_JAM_TIME_S = 0.35f;
+constexpr float SPRING_STRETCHER_CALIB_TIMEOUT_S = 4.0f;
+
 // Cascaded position-to-velocity-to-current gains. Feedback current is in amps.
 constexpr float SPRING_STRETCHER_POS_KP          = 35.0f;
 constexpr float SPRING_STRETCHER_POS_KI          = 0.0f;

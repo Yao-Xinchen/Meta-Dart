@@ -40,6 +40,7 @@ private:
         float direction = 1.f;
 
         float zero = 0.f;
+        float raw_position = 0.f;
         float position = 0.f;
         float velocity = 0.f;
         float current = 0.f;
@@ -53,6 +54,11 @@ private:
 
         bool zeroed = false;
         bool feedback_ok = false;
+        bool raw_position_valid = false;
+        bool calibration_failed = false;
+
+        std::chrono::steady_clock::time_point calibration_started_at{};
+        std::chrono::steady_clock::time_point last_moving_at{};
     };
 
     void loop();
@@ -63,7 +69,9 @@ private:
     void process_feedback(const can_frame& frame);
     void send_current_commands();
     void update_control();
+    void update_calibration();
     void publish_state();
+    bool calibrated() const;
     bool goal_reached() const;
 
     static float wrap_delta(float angle);
@@ -79,6 +87,7 @@ private:
 
     int  can_socket_ = -1;
     bool hw_ok_ = false;
+    bool calibration_active_ = false;
     bool has_goal_ = false;
     bool retract_after_stretch_ = false;
     std::chrono::steady_clock::time_point stretch_reached_at_{};

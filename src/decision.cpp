@@ -369,9 +369,11 @@ bool DecisionModule::move_to_loading_and_release()
 
     SpringStretcherState ss_state{};
     spring_stretcher_.read_state(ss_state);
-    if (ss_state.hw_ok) {
+    if (ss_state.hw_ok && ss_state.calibrated) {
         mdlog::catch_("triggering spring stretcher");
         spring_stretcher_.stretch();
+    } else if (ss_state.hw_ok) {
+        mdlog::disturb("spring stretcher is not calibrated yet; skipping stretch");
     }
 
     return sleep_interruptible(seconds_to_ms(config_.gripper_settle_s));
@@ -750,11 +752,7 @@ void DecisionModule::loop() {
                 break;
             }
             prev_state = state_;
-            state_enter_time = Clock::now();
         }
-
-        const float state_age =
-            std::chrono::duration<float>(Clock::now() - state_enter_time).count();
 
         switch (state_) {
         case State::Idle:
