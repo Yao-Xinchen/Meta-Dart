@@ -98,6 +98,27 @@ target_link_libraries(test_vision_camera PRIVATE
 target_link_options(test_vision_camera PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
 target_compile_options(test_vision_camera PRIVATE -Wall -Wextra -O2)
 
+# ── Spring stretcher tuning utilities ─────────────────────────────────────────
+add_executable(test_stretcher_monitor test/test_stretcher_monitor.cpp)
+target_include_directories(test_stretcher_monitor PRIVATE include test)
+target_link_libraries(test_stretcher_monitor PRIVATE pthread)
+target_compile_options(test_stretcher_monitor PRIVATE -Wall -Wextra -O2)
+
+add_executable(test_stretcher_direction test/test_stretcher_direction.cpp)
+target_include_directories(test_stretcher_direction PRIVATE include test)
+target_link_libraries(test_stretcher_direction PRIVATE pthread)
+target_compile_options(test_stretcher_direction PRIVATE -Wall -Wextra -O2)
+
+add_executable(test_stretcher_calibration test/test_stretcher_calibration.cpp)
+target_include_directories(test_stretcher_calibration PRIVATE include test)
+target_link_libraries(test_stretcher_calibration PRIVATE pthread)
+target_compile_options(test_stretcher_calibration PRIVATE -Wall -Wextra -O2)
+
+add_executable(test_stretcher_stretch test/test_stretcher_stretch.cpp)
+target_include_directories(test_stretcher_stretch PRIVATE include test)
+target_link_libraries(test_stretcher_stretch PRIVATE pthread)
+target_compile_options(test_stretcher_stretch PRIVATE -Wall -Wextra -O2)
+
 # ── Arm hardware test ─────────────────────────────────────────────────────────
 add_executable(test_arm test/test_arm.cpp ${ARM_SRCS})
 target_include_directories(test_arm PRIVATE include ${DXL_INCLUDE_DIRS})
