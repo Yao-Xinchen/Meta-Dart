@@ -222,7 +222,7 @@ else
   warn "git submodule status failed"
 fi
 
-for target in loader test_trajectory test_gripper_trajectory test_arm scan_motors; do
+for target in dart_launcher test_trajectory test_gripper_trajectory test_arm scan_motors; do
   if [[ -x "${REPO_ROOT}/build/${target}" ]]; then
     pass "build output exists: build/${target}"
   else
@@ -237,7 +237,7 @@ if [[ "${RUN_BUILD_CHECK}" == "1" ]]; then
   else
     fail "cmake configure failed"
   fi
-  if cmake --build "${REPO_ROOT}/build" -j --target loader test_trajectory test_gripper_trajectory; then
+  if cmake --build "${REPO_ROOT}/build" -j --target dart_launcher test_trajectory test_gripper_trajectory; then
     pass "selected CMake targets built successfully"
   else
     fail "selected CMake targets failed to build"

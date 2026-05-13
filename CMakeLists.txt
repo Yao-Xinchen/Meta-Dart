@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(loader CXX)
+project(dart_launcher CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -48,7 +48,7 @@ set(DXL_INCLUDE_DIRS
 set(ARM_SRCS src/arm.cpp ${DXL_SDK_SRCS} ${DXL_WB_SRCS})
 
 # ── Main executable ───────────────────────────────────────────────────────────
-add_executable(loader
+add_executable(dart_launcher
     src/main.cpp
     src/camera.cpp
     src/vision.cpp
@@ -60,21 +60,21 @@ add_executable(loader
     ${DXL_WB_SRCS}
 )
 
-target_include_directories(loader PRIVATE
+target_include_directories(dart_launcher PRIVATE
     include
     ${OpenCV_INCLUDE_DIRS}
     ${DXL_INCLUDE_DIRS}
     ${ORT_ROOT}/include
 )
 
-target_link_libraries(loader PRIVATE
+target_link_libraries(dart_launcher PRIVATE
     ${OpenCV_LIBS}
     pthread
     ${ORT_ROOT}/lib/libonnxruntime.so
 )
 
-target_link_options(loader PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
-target_compile_options(loader PRIVATE -Wall -Wextra -O2)
+target_link_options(dart_launcher PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
+target_compile_options(dart_launcher PRIVATE -Wall -Wextra -O2)
 
 # ── Vision camera test (no arm, no decision) ──────────────────────────────────
 add_executable(test_vision_camera

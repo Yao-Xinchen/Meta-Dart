@@ -134,7 +134,7 @@ int main(int argc, char* argv[]) {
     std::signal(SIGTERM, on_signal);
     std::signal(SIGUSR1, on_keyboard_signal);
 
-    mdlog::event("Main", "Meta-Dart loader starting");
+    mdlog::event("Main", "Meta-Dart dart launcher starting");
 
     RuntimeConfig runtime_config = make_default_runtime_config();
     const char* config_path = "config/loader_config.json";
