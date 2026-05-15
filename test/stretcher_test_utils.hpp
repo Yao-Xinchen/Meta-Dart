@@ -191,7 +191,10 @@ inline void print_feedback(const std::array<Feedback, 2>& fb)
 
 inline CalibResult calibrate_top_stops(M3508Bus& bus,
                                        std::array<Feedback, 2>& fb,
-                                       float current_a,
+                                       float target_vel,
+                                       float max_current,
+                                       float vel_kp,
+                                       float vel_kd,
                                        float jam_vel,
                                        float jam_time_s,
                                        float timeout_s,
@@ -202,20 +205,25 @@ inline CalibResult calibrate_top_stops(M3508Bus& bus,
 
     CalibResult result{};
     std::array<bool, 2> done = {false, false};
+    std::array<bool, 2> vel_error_valid = {false, false};
     std::array<float, 2> start_pos = {};
+    std::array<float, 2> vel_error = {};
+    const auto t0 = Clock::now();
     std::array<Clock::time_point, 2> started = {};
     std::array<Clock::time_point, 2> last_moving = {};
-
-    const auto t0 = Clock::now();
+    auto prev_update = t0;
     const auto print_period = std::chrono::milliseconds(100);
     auto next_print = t0;
 
     while (true) {
         const auto now = Clock::now();
+        float dt = std::chrono::duration<float>(now - prev_update).count();
+        if (dt < 0.001f) dt = 0.001f;
+        prev_update = now;
         bus.poll(fb);
 
-        float left_current = done[0] ? 0.f : -left_dir * current_a;
-        float right_current = done[1] ? 0.f : -right_dir * current_a;
+        std::array<float, 2> command_current = {0.f, 0.f};
+        const std::array<float, 2> dirs = {left_dir, right_dir};
 
         for (int i = 0; i < 2; ++i) {
             if (done[i] || !fb[i].seen) continue;
@@ -224,6 +232,14 @@ inline CalibResult calibrate_top_stops(M3508Bus& bus,
                 last_moving[i] = now;
                 start_pos[i] = fb[i].raw_position;
             }
+
+            const float goal_vel = -dirs[i] * std::fabs(target_vel);
+            const float prev_error = vel_error[i];
+            vel_error[i] = goal_vel - fb[i].velocity;
+            const float vel_d_term = vel_error_valid[i] ? (vel_error[i] - prev_error) / dt : 0.f;
+            vel_error_valid[i] = true;
+            command_current[i] = clamp(vel_kp * vel_error[i] + vel_kd * vel_d_term,
+                                       std::fabs(max_current));
 
             if (std::fabs(fb[i].velocity) > jam_vel)
                 last_moving[i] = now;
@@ -238,7 +254,9 @@ inline CalibResult calibrate_top_stops(M3508Bus& bus,
             }
         }
 
-        bus.send(left_current, right_current, fb[0].id, fb[1].id);
+        if (done[0]) command_current[0] = 0.f;
+        if (done[1]) command_current[1] = 0.f;
+        bus.send(command_current[0], command_current[1], fb[0].id, fb[1].id);
 
         if (now >= next_print) {
             print_feedback(fb);

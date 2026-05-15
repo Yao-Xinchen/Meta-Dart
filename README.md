@@ -231,7 +231,7 @@ sudo ./build/test_trajectory positions.xml s0_prep s0_grasp s0_pulled_out loadin
 
 ## Spring Stretcher
 
-The spring stretcher uses two DJI M3508 motors over SocketCAN. The motors do not have an absolute zero, so startup calibration moves each hook toward the top hard stop. When the hook stops moving for long enough, that top-stop encoder position becomes zero/home.
+The spring stretcher uses two DJI M3508 motors over SocketCAN. The motors do not have an absolute zero, so startup calibration velocity-controls each hook toward the top hard stop. When the hook stops moving for long enough, that top-stop encoder position becomes zero/home.
 
 Normal stretch sequence:
 
@@ -253,7 +253,9 @@ Static stretcher constants in `include/config.hpp`:
 | `SPRING_STRETCHER_POS_TOL_RAD` | Position tolerance for goal reached. |
 | `SPRING_STRETCHER_VEL_TOL_RAD_S` | Velocity tolerance for settled goal reached. |
 | `SPRING_STRETCHER_HOLD_TIME_S` | Time to hold stretched position before retracting. |
-| `SPRING_STRETCHER_CALIB_CURRENT_A` | Current used to move hooks into the top stop during calibration. |
+| `SPRING_STRETCHER_CALIB_VEL_RAD_S` | Target hook velocity toward the top stop during calibration. |
+| `SPRING_STRETCHER_CALIB_MAX_CURRENT_A` | Current safety cap for calibration velocity control. |
+| `SPRING_STRETCHER_CALIB_VEL_KP/KD` | Calibration velocity-to-current gains. |
 | `SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S` | Velocity threshold for “stuck at top”. |
 | `SPRING_STRETCHER_CALIB_JAM_TIME_S` | Time below jam velocity before zero is accepted. |
 | `SPRING_STRETCHER_CALIB_TIMEOUT_S` | Safety timeout for calibration. |
@@ -270,7 +272,7 @@ Run these in order. They live in `test/` and build as standalone targets.
 |---|---:|---|
 | `test_stretcher_monitor` | No, sends zero current | Check CAN interface, motor IDs, feedback, encoder direction by hand. |
 | `test_stretcher_direction` | Yes, small fixed current | Verify `LEFT_DIR` and `RIGHT_DIR` make positive motion stretch the springs. |
-| `test_stretcher_calibration` | Yes, toward top stop | Tune top-stop zeroing current, jam velocity, jam time, timeout. |
+| `test_stretcher_calibration` | Yes, toward top stop | Tune top-stop zeroing velocity, current cap, gains, jam velocity, jam time, timeout. |
 | `test_stretcher_stretch` | Yes, full cycle | Calibrate, stretch to target, hold, retract; tune stretch length and gains. |
 
 Commands:
@@ -283,7 +285,7 @@ sudo ./build/test_stretcher_monitor 10 can0
 sudo ./build/test_stretcher_direction 1.0 1.0 1 -1 can0
 
 # 3. Calibration tuning
-sudo ./build/test_stretcher_calibration 2.0 0.5 0.35 4.0 1 -1 can0
+sudo ./build/test_stretcher_calibration 6.0 3.0 0.5 0.0 0.5 0.35 4.0 1 -1 can0
 
 # 4. Stretch cycle tuning
 sudo ./build/test_stretcher_stretch 6.0 10.0 35.0 0.6 60.0 0.25 can0
@@ -293,7 +295,7 @@ Tuning order:
 
 1. `test_stretcher_monitor`: verify CAN and IDs.
 2. `test_stretcher_direction`: set `SPRING_STRETCHER_LEFT_DIR` and `SPRING_STRETCHER_RIGHT_DIR`.
-3. `test_stretcher_calibration`: tune calibration current and jam detection.
+3. `test_stretcher_calibration`: tune calibration velocity control and jam detection.
 4. `test_stretcher_stretch`: tune stretch distance, current limit, `POS_KP`, `VEL_KP`, and max velocity.
 
 ## Test Targets
@@ -414,7 +416,7 @@ Lower `SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S` or increase `SPRING_STRETCHER_CALIB
 
 **Stretcher calibration grinds at the top stop**
 
-Lower `SPRING_STRETCHER_CALIB_CURRENT_A` or lower `SPRING_STRETCHER_CALIB_JAM_TIME_S` after confirming velocity noise is acceptable.
+Lower `SPRING_STRETCHER_CALIB_VEL_RAD_S`, lower `SPRING_STRETCHER_CALIB_MAX_CURRENT_A`, or lower `SPRING_STRETCHER_CALIB_JAM_TIME_S` after confirming velocity noise is acceptable.
 
 **Stretch motion oscillates**
 

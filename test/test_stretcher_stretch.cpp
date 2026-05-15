@@ -117,7 +117,10 @@ int main(int argc, char** argv)
 
     const auto calib = stretcher_test::calibrate_top_stops(
         bus, fb,
-        SPRING_STRETCHER_CALIB_CURRENT_A,
+        SPRING_STRETCHER_CALIB_VEL_RAD_S,
+        SPRING_STRETCHER_CALIB_MAX_CURRENT_A,
+        SPRING_STRETCHER_CALIB_VEL_KP,
+        SPRING_STRETCHER_CALIB_VEL_KD,
         SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S,
         SPRING_STRETCHER_CALIB_JAM_TIME_S,
         SPRING_STRETCHER_CALIB_TIMEOUT_S,

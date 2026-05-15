@@ -86,10 +86,13 @@ constexpr float SPRING_STRETCHER_POS_TOL_RAD     = 0.08f;
 constexpr float SPRING_STRETCHER_VEL_TOL_RAD_S   = 1.0f;
 constexpr float SPRING_STRETCHER_HOLD_TIME_S     = 0.25f;
 
-// Startup calibration: move each spring hook toward the top hard stop and use
-// the jammed position as home/zero. Positive stretch is motor.direction, so
-// calibration moves in the opposite direction.
-constexpr float SPRING_STRETCHER_CALIB_CURRENT_A = 2.0f;
+// Startup calibration: move each spring hook toward the top hard stop with a
+// velocity loop and use the jammed position as home/zero. Positive stretch is
+// motor.direction, so calibration moves in the opposite direction.
+constexpr float SPRING_STRETCHER_CALIB_VEL_RAD_S = 6.0f;
+constexpr float SPRING_STRETCHER_CALIB_MAX_CURRENT_A = 3.0f;
+constexpr float SPRING_STRETCHER_CALIB_VEL_KP = 0.5f;
+constexpr float SPRING_STRETCHER_CALIB_VEL_KD = 0.0f;
 constexpr float SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S = 0.5f;
 constexpr float SPRING_STRETCHER_CALIB_JAM_TIME_S = 0.35f;
 constexpr float SPRING_STRETCHER_CALIB_TIMEOUT_S = 4.0f;

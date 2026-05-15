@@ -49,6 +49,7 @@ private:
         float command_current = 0.f;
         float pos_error = 0.f;
         float vel_error = 0.f;
+        float calib_vel_error = 0.f;
         float pos_i = 0.f;
         float vel_i = 0.f;
 

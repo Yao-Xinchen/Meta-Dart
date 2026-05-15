@@ -336,9 +336,17 @@ void SpringStretcherModule::update_calibration()
             motor.last_moving_at = now;
         }
 
+        const float target_vel = -motor.direction * std::fabs(SPRING_STRETCHER_CALIB_VEL_RAD_S);
+        const float prev_vel_error = motor.calib_vel_error;
+        motor.calib_vel_error = target_vel - motor.velocity;
+        const float vel_d =
+            (motor.calibration_started_at == now) ? 0.f : (motor.calib_vel_error - prev_vel_error) *
+                                                            static_cast<float>(SPRING_STRETCHER_LOOP_HZ);
         motor.command_current =
-            clamp(-motor.direction * SPRING_STRETCHER_CALIB_CURRENT_A,
-                  SPRING_STRETCHER_MAX_CURRENT_A);
+            SPRING_STRETCHER_CALIB_VEL_KP * motor.calib_vel_error +
+            SPRING_STRETCHER_CALIB_VEL_KD * vel_d;
+        motor.command_current =
+            clamp(motor.command_current, std::fabs(SPRING_STRETCHER_CALIB_MAX_CURRENT_A));
 
         if (std::fabs(motor.velocity) > SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S) {
             motor.last_moving_at = now;
