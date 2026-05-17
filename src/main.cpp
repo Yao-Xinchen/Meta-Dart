@@ -3,6 +3,7 @@
 #include "vision.hpp"
 #include "arm.hpp"
 #include "spring_stretcher.hpp"
+#include "trigger.hpp"
 #include "decision.hpp"
 #include "runtime_config.hpp"
 #include "log.hpp"
@@ -223,7 +224,8 @@ int main(int argc, char* argv[]) {
     VisionModule   vision(camera.buffer(), runtime_config.vision_confidence_threshold);
     ArmModule      arm;
     SpringStretcherModule spring_stretcher;
-    DecisionModule        decision(vision.buffer(), arm, spring_stretcher, runtime_config.decision);
+    TriggerModule         trigger;
+    DecisionModule        decision(vision.buffer(), arm, spring_stretcher, trigger, runtime_config.decision);
 
     // ── Start modules ────────────────────────────────────────────────────
     if (!camera.start()) {
@@ -242,6 +244,9 @@ int main(int argc, char* argv[]) {
     if (!spring_stretcher.start())
         mdlog::warn("Main", "spring stretcher failed to start; shooting disabled");
 
+    if (!trigger.start())
+        mdlog::warn("Main", "trigger failed to start; shooting disabled");
+
     decision.start();
 
     std::thread keyboard_thread(keyboard_loop);
@@ -259,6 +264,7 @@ int main(int argc, char* argv[]) {
     decision.stop();
     if (arm_online && g_keyboard_quit)
         emergency_return_home(arm, runtime_config.decision.emergency_home_duration_s);
+    trigger.stop();
     spring_stretcher.stop();
     arm.stop();
     vision.stop();

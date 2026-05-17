@@ -1,6 +1,7 @@
 #include "decision.hpp"
 #include "arm.hpp"
 #include "spring_stretcher.hpp"
+#include "trigger.hpp"
 #include "config.hpp"
 #include "log.hpp"
 
@@ -130,10 +131,12 @@ bool is_loading_release_step(const DecisionTrajectoryStep& step)
 DecisionModule::DecisionModule(TripleBuffer<Detection>& detection_buf,
                                ArmModule& arm,
                                SpringStretcherModule& spring_stretcher,
+                               TriggerModule& trigger,
                                DecisionRuntimeConfig config)
     : detection_buf_(detection_buf)
     , arm_(arm)
     , spring_stretcher_(spring_stretcher)
+    , trigger_(trigger)
     , config_(std::move(config))
 {}
 
@@ -338,6 +341,12 @@ bool DecisionModule::move_to_loading_and_release()
     ArmState state{};
     std::array<float, 4> target{};
 
+    if (!wait_for_prearmed(seconds_to_ms(config_.move_timeout_s * 2.0f))) {
+        mdlog::error("Decision", "launcher is not armed and clear; refusing to load dart");
+        safe_deenergize();
+        return false;
+    }
+
     if (!arm_.get_position("loading", target)) {
         mdlog::error("Decision", "unknown or unavailable position: loading");
         return false;
@@ -366,15 +375,7 @@ bool DecisionModule::move_to_loading_and_release()
     }
 
     arm_.release();
-
-    SpringStretcherState ss_state{};
-    spring_stretcher_.read_state(ss_state);
-    if (ss_state.hw_ok && ss_state.calibrated) {
-        mdlog::catch_("triggering spring stretcher");
-        spring_stretcher_.stretch();
-    } else if (ss_state.hw_ok) {
-        mdlog::disturb("spring stretcher is not calibrated yet; skipping stretch");
-    }
+    dart_loaded_ = true;
 
     return sleep_interruptible(seconds_to_ms(config_.gripper_settle_s));
 }
@@ -403,6 +404,181 @@ bool DecisionModule::move_to_search_pose()
 
     mdlog::searching("waiting at %s", config_.search_wait_pose.c_str());
     return true;
+}
+
+void DecisionModule::refresh_launcher_states()
+{
+    SpringStretcherState ss{};
+    while (spring_stretcher_.read_state(ss)) {
+        latest_stretcher_state_ = ss;
+        have_stretcher_state_ = true;
+    }
+
+    TriggerState ts{};
+    while (trigger_.read_state(ts)) {
+        latest_trigger_state_ = ts;
+        have_trigger_state_ = true;
+    }
+}
+
+bool DecisionModule::ensure_prearm_started()
+{
+    refresh_launcher_states();
+
+    if (have_stretcher_state_ && latest_stretcher_state_.armed_and_clear)
+        return true;
+
+    if (prearm_requested_)
+        return false;
+
+    if (!have_stretcher_state_ || !latest_stretcher_state_.hw_ok ||
+        !latest_stretcher_state_.calibrated) {
+        return false;
+    }
+
+    if (!have_trigger_state_ || !latest_trigger_state_.hw_ok) {
+        mdlog::disturb("trigger not ready; delaying spring prearm");
+        return false;
+    }
+
+    if (latest_trigger_state_.position != TriggerState::Position::HoldingHigh) {
+        trigger_.hold();
+        return false;
+    }
+    if (!latest_trigger_state_.settled)
+        return false;
+
+    spring_stretcher_.stretch();
+    prearm_requested_ = true;
+    mdlog::assembling("spring prearm started");
+    return false;
+}
+
+bool DecisionModule::wait_for_prearmed(std::chrono::milliseconds timeout)
+{
+    using Clock = std::chrono::steady_clock;
+    const auto deadline = Clock::now() + timeout;
+
+    while (running_ && Clock::now() < deadline) {
+        ensure_prearm_started();
+        refresh_launcher_states();
+
+        const bool trigger_holding = have_trigger_state_ &&
+            latest_trigger_state_.hw_ok &&
+            latest_trigger_state_.settled &&
+            latest_trigger_state_.position == TriggerState::Position::HoldingHigh;
+        const bool spring_ready = have_stretcher_state_ &&
+            latest_stretcher_state_.hw_ok &&
+            latest_stretcher_state_.armed_and_clear;
+
+        if (trigger_holding && spring_ready)
+            return true;
+
+        if (have_stretcher_state_ &&
+            latest_stretcher_state_.phase == SpringStretcherPhase::Fault) {
+            mdlog::error("Decision", "spring stretcher entered fault while prearming");
+            return false;
+        }
+
+        std::this_thread::sleep_for(50ms);
+    }
+
+    return false;
+}
+
+bool DecisionModule::fire_loaded_dart()
+{
+    if (!dart_loaded_)
+        return true;
+
+    ArmState arm_state{};
+    if (!arm_.read_state(arm_state) || !arm_state.hw_ok) {
+        mdlog::error("Decision", "cannot fire: arm state unavailable");
+        safe_deenergize();
+        return false;
+    }
+
+    refresh_launcher_states();
+    if (!have_stretcher_state_ || !latest_stretcher_state_.armed_and_clear ||
+        !have_trigger_state_ ||
+        latest_trigger_state_.position != TriggerState::Position::HoldingHigh) {
+        mdlog::error("Decision", "cannot fire: launcher is not in ready-to-fire state");
+        safe_deenergize();
+        return false;
+    }
+
+    mdlog::event("Decision", "ready to fire: releasing trigger");
+    trigger_.release();
+    if (!sleep_interruptible(seconds_to_ms(TRIGGER_RELEASE_PULSE_S)))
+        return false;
+
+    trigger_.hold();
+    spring_stretcher_.idle();
+    dart_loaded_ = false;
+    prearm_requested_ = false;
+    mdlog::event("Decision", "shot complete; trigger reset high");
+    return sleep_interruptible(seconds_to_ms(TRIGGER_SETTLE_TIME_S));
+}
+
+bool DecisionModule::safe_deenergize()
+{
+    refresh_launcher_states();
+
+    if (!have_stretcher_state_ || !latest_stretcher_state_.hw_ok ||
+        !latest_stretcher_state_.calibrated) {
+        mdlog::error("Decision", "cannot safe-deenergize: spring stretcher unavailable");
+        return false;
+    }
+
+    const bool already_relaxed =
+        latest_stretcher_state_.phase == SpringStretcherPhase::Home ||
+        latest_stretcher_state_.phase == SpringStretcherPhase::Offline;
+    if (already_relaxed && !latest_stretcher_state_.armed_and_clear) {
+        trigger_.hold();
+        prearm_requested_ = false;
+        return true;
+    }
+
+    mdlog::disturb("safe deenergize: stretcher taking load before trigger release");
+    spring_stretcher_.take_load();
+
+    const auto take_load_deadline =
+        std::chrono::steady_clock::now() + seconds_to_ms(config_.move_timeout_s);
+    while (running_ && std::chrono::steady_clock::now() < take_load_deadline) {
+        refresh_launcher_states();
+        if (have_stretcher_state_ && latest_stretcher_state_.holding_load)
+            break;
+        std::this_thread::sleep_for(50ms);
+    }
+
+    refresh_launcher_states();
+    if (!latest_stretcher_state_.holding_load) {
+        mdlog::error("Decision", "safe deenergize failed: stretcher could not take load");
+        return false;
+    }
+
+    trigger_.release();
+    if (!sleep_interruptible(seconds_to_ms(TRIGGER_SAFE_RELEASE_WAIT_S)))
+        return false;
+
+    spring_stretcher_.safe_retract();
+    const auto retract_deadline =
+        std::chrono::steady_clock::now() + seconds_to_ms(config_.move_timeout_s * 2.0f);
+    while (running_ && std::chrono::steady_clock::now() < retract_deadline) {
+        refresh_launcher_states();
+        if (have_stretcher_state_ &&
+            latest_stretcher_state_.phase == SpringStretcherPhase::Home) {
+            trigger_.hold();
+            dart_loaded_ = false;
+            prearm_requested_ = false;
+            mdlog::disturb("safe deenergize complete; spring relaxed");
+            return true;
+        }
+        std::this_thread::sleep_for(50ms);
+    }
+
+    mdlog::error("Decision", "safe deenergize timed out during slow retract");
+    return false;
 }
 
 DecisionModule::MoveResult DecisionModule::check_dart_motion(int monitor_zone_index)
@@ -654,6 +830,9 @@ DecisionModule::PickupResult DecisionModule::execute_pickup_trajectory(int zone_
         if (restart_with_relocated_zone)
             continue;
 
+        if (!fire_loaded_dart())
+            return PickupResult::Failed;
+
         mdlog::catch_("pickup complete");
         return PickupResult::Complete;
     }
@@ -741,6 +920,9 @@ void DecisionModule::loop() {
             case State::ExecutingTrajectory:
                 mdlog::catch_("active");
                 break;
+            case State::SafeDeenergize:
+                mdlog::disturb("safe deenergize");
+                break;
             case State::Homing:
                 mdlog::assembling("homing");
                 break;
@@ -759,6 +941,7 @@ void DecisionModule::loop() {
             break;
 
         case State::Homing:
+            ensure_prearm_started();
             if (!got_arm_state) {
                 break;
             }
@@ -775,6 +958,7 @@ void DecisionModule::loop() {
             break;
 
         case State::Searching:
+            ensure_prearm_started();
             if (!got_arm_state) {
                 break;
             }
@@ -806,11 +990,17 @@ void DecisionModule::loop() {
                 state_ = State::Searching;
             } else if (running_) {
                 mdlog::error("Decision", "pickup failed; returning home");
+                safe_deenergize();
                 move_to_and_wait("home");
                 state_ = State::Idle;
             }
             break;
         }
+
+        case State::SafeDeenergize:
+            safe_deenergize();
+            state_ = State::Idle;
+            break;
 
         case State::ResetCooldown:
             mdlog::searching("cooldown %.1fs before next search",
@@ -832,6 +1022,7 @@ const char* DecisionModule::state_name(State s) const {
     case State::Homing:               return "HOMING";
     case State::Searching:            return "SEARCHING";
     case State::ExecutingTrajectory:  return "EXECUTING_TRAJECTORY";
+    case State::SafeDeenergize:       return "SAFE_DEENERGIZE";
     case State::ResetCooldown:        return "RESET_COOLDOWN";
     default:                          return "?";
     }

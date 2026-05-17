@@ -30,6 +30,8 @@ public:
 
     void stretch();
     void retract();
+    void take_load();
+    void safe_retract();
     void idle();
 
     bool read_state(SpringStretcherState& out);
@@ -91,5 +93,6 @@ private:
     bool calibration_active_ = false;
     bool has_goal_ = false;
     bool retract_after_stretch_ = false;
+    SpringStretcherPhase phase_ = SpringStretcherPhase::Offline;
     std::chrono::steady_clock::time_point stretch_reached_at_{};
 };

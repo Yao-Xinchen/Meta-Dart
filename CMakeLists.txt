@@ -54,6 +54,7 @@ add_executable(dart_launcher
     src/vision.cpp
     src/arm.cpp
     src/spring_stretcher.cpp
+    src/trigger.cpp
     src/decision.cpp
     src/runtime_config.cpp
     ${DXL_SDK_SRCS}

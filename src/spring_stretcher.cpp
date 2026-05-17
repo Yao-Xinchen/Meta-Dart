@@ -43,11 +43,13 @@ bool SpringStretcherModule::start()
     if (!hw_ok_) {
         SpringStretcherState bad{};
         bad.hw_ok = false;
+        bad.phase = SpringStretcherPhase::Offline;
         state_buf_.write(bad);
         return false;
     }
 
     calibration_active_ = true;
+    phase_ = SpringStretcherPhase::Calibrating;
     std::printf("[SpringStretcher] calibrating hooks toward top stops\n");
 
     running_ = true;
@@ -79,6 +81,20 @@ void SpringStretcherModule::retract()
 {
     SpringStretcherCmd cmd;
     cmd.type = SpringStretcherCmd::Type::Retract;
+    cmd_buf_.write(cmd);
+}
+
+void SpringStretcherModule::take_load()
+{
+    SpringStretcherCmd cmd;
+    cmd.type = SpringStretcherCmd::Type::TakeLoad;
+    cmd_buf_.write(cmd);
+}
+
+void SpringStretcherModule::safe_retract()
+{
+    SpringStretcherCmd cmd;
+    cmd.type = SpringStretcherCmd::Type::SafeRetract;
     cmd_buf_.write(cmd);
 }
 
@@ -133,6 +149,7 @@ void SpringStretcherModule::close_can()
         can_socket_ = -1;
     }
     hw_ok_ = false;
+    phase_ = SpringStretcherPhase::Offline;
 }
 
 void SpringStretcherModule::loop()
@@ -169,6 +186,7 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         }
         has_goal_ = false;
         retract_after_stretch_ = false;
+        phase_ = calibrated() ? SpringStretcherPhase::Home : SpringStretcherPhase::Offline;
         break;
 
     case SpringStretcherCmd::Type::Stretch:
@@ -184,6 +202,7 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         has_goal_ = true;
         retract_after_stretch_ = true;
         stretch_reached_at_ = {};
+        phase_ = SpringStretcherPhase::Stretching;
         std::printf("[SpringStretcher] stretching springs\n");
         break;
 
@@ -199,7 +218,41 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         }
         has_goal_ = true;
         retract_after_stretch_ = false;
+        phase_ = SpringStretcherPhase::Retracting;
         std::printf("[SpringStretcher] retracting motors\n");
+        break;
+
+    case SpringStretcherCmd::Type::TakeLoad:
+        if (!calibrated()) {
+            std::printf("[SpringStretcher] ignoring take-load command until calibration finishes\n");
+            break;
+        }
+        for (auto& motor : motors_) {
+            motor.target = motor.direction * SPRING_STRETCHER_STRETCH_RAD;
+            motor.pos_i = 0.f;
+            motor.vel_i = 0.f;
+        }
+        has_goal_ = true;
+        retract_after_stretch_ = false;
+        stretch_reached_at_ = {};
+        phase_ = SpringStretcherPhase::TakingLoad;
+        std::printf("[SpringStretcher] taking spring load for safe release\n");
+        break;
+
+    case SpringStretcherCmd::Type::SafeRetract:
+        if (!calibrated()) {
+            std::printf("[SpringStretcher] ignoring safe retract command until calibration finishes\n");
+            break;
+        }
+        for (auto& motor : motors_) {
+            motor.target = SPRING_STRETCHER_HOME_RAD;
+            motor.pos_i = 0.f;
+            motor.vel_i = 0.f;
+        }
+        has_goal_ = true;
+        retract_after_stretch_ = false;
+        phase_ = SpringStretcherPhase::SafeRetracting;
+        std::printf("[SpringStretcher] slowly releasing spring energy to home\n");
         break;
     }
 }
@@ -270,6 +323,7 @@ void SpringStretcherModule::update_control()
 
     if (retract_after_stretch_) {
         if (reached && stretch_reached_at_ == Clock::time_point{}) {
+            phase_ = SpringStretcherPhase::HoldingStretched;
             stretch_reached_at_ = Clock::now();
         }
         if (stretch_reached_at_ != Clock::time_point{} &&
@@ -281,7 +335,18 @@ void SpringStretcherModule::update_control()
                 motor.vel_i = 0.f;
             }
             retract_after_stretch_ = false;
+            phase_ = SpringStretcherPhase::Retracting;
             std::printf("[SpringStretcher] springs stretched, retracting motors\n");
+        }
+    } else if (has_goal_ && reached) {
+        if (phase_ == SpringStretcherPhase::Retracting) {
+            phase_ = SpringStretcherPhase::ArmedAndClear;
+            has_goal_ = false;
+        } else if (phase_ == SpringStretcherPhase::SafeRetracting) {
+            phase_ = SpringStretcherPhase::Home;
+            has_goal_ = false;
+        } else if (phase_ == SpringStretcherPhase::TakingLoad) {
+            phase_ = SpringStretcherPhase::HoldingStretched;
         }
     }
 
@@ -293,21 +358,29 @@ void SpringStretcherModule::update_control()
 
         const float prev_pos_error = motor.pos_error;
         motor.pos_error = motor.target - motor.position;
-        motor.pos_i = clamp(motor.pos_i + motor.pos_error * dt, SPRING_STRETCHER_MAX_VEL_RAD_S);
+        const bool safe_retract = phase_ == SpringStretcherPhase::SafeRetracting;
+        const float max_vel = safe_retract
+            ? SPRING_STRETCHER_SAFE_RETRACT_VEL_RAD_S
+            : SPRING_STRETCHER_MAX_VEL_RAD_S;
+        const float max_current = safe_retract
+            ? SPRING_STRETCHER_SAFE_RETRACT_CURRENT_A
+            : SPRING_STRETCHER_MAX_CURRENT_A;
+
+        motor.pos_i = clamp(motor.pos_i + motor.pos_error * dt, max_vel);
         const float pos_d = (motor.pos_error - prev_pos_error) / dt;
         float goal_vel = SPRING_STRETCHER_POS_KP * motor.pos_error +
                          SPRING_STRETCHER_POS_KI * motor.pos_i +
                          SPRING_STRETCHER_POS_KD * pos_d;
-        goal_vel = clamp(goal_vel, SPRING_STRETCHER_MAX_VEL_RAD_S);
+        goal_vel = clamp(goal_vel, max_vel);
 
         const float prev_vel_error = motor.vel_error;
         motor.vel_error = goal_vel - motor.velocity;
-        motor.vel_i = clamp(motor.vel_i + motor.vel_error * dt, SPRING_STRETCHER_MAX_CURRENT_A);
+        motor.vel_i = clamp(motor.vel_i + motor.vel_error * dt, max_current);
         const float vel_d = (motor.vel_error - prev_vel_error) / dt;
         motor.command_current = SPRING_STRETCHER_VEL_KP * motor.vel_error +
                                 SPRING_STRETCHER_VEL_KI * motor.vel_i +
                                 SPRING_STRETCHER_VEL_KD * vel_d;
-        motor.command_current = clamp(motor.command_current, SPRING_STRETCHER_MAX_CURRENT_A);
+        motor.command_current = clamp(motor.command_current, max_current);
     }
 }
 
@@ -369,6 +442,7 @@ void SpringStretcherModule::update_calibration()
             motor.calibration_failed = true;
             hw_ok_ = false;
             calibration_active_ = false;
+            phase_ = SpringStretcherPhase::Fault;
             std::fprintf(stderr, "[SpringStretcher] motor %d calibration timed out\n", motor.id);
             return;
         }
@@ -378,6 +452,7 @@ void SpringStretcherModule::update_calibration()
         calibration_active_ = false;
         has_goal_ = false;
         retract_after_stretch_ = false;
+        phase_ = SpringStretcherPhase::Home;
         std::printf("[SpringStretcher] calibration complete\n");
     }
 }
@@ -419,6 +494,7 @@ void SpringStretcherModule::publish_state()
 {
     SpringStretcherState state{};
     state.hw_ok = hw_ok_;
+    state.phase = phase_;
 
     {
         std::lock_guard<std::mutex> lock(motor_mtx_);
@@ -429,6 +505,9 @@ void SpringStretcherModule::publish_state()
         }
         state.calibrated = calibrated();
         state.reached_goal = has_goal_ && !retract_after_stretch_ && goal_reached();
+        state.armed_and_clear = phase_ == SpringStretcherPhase::ArmedAndClear;
+        state.holding_load = phase_ == SpringStretcherPhase::HoldingStretched ||
+                             phase_ == SpringStretcherPhase::TakingLoad;
     }
 
     state_buf_.write(state);

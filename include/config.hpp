@@ -85,6 +85,8 @@ constexpr float SPRING_STRETCHER_HOME_RAD        = 0.0f;
 constexpr float SPRING_STRETCHER_POS_TOL_RAD     = 0.08f;
 constexpr float SPRING_STRETCHER_VEL_TOL_RAD_S   = 1.0f;
 constexpr float SPRING_STRETCHER_HOLD_TIME_S     = 0.25f;
+constexpr float SPRING_STRETCHER_SAFE_RETRACT_VEL_RAD_S = 6.0f;
+constexpr float SPRING_STRETCHER_SAFE_RETRACT_CURRENT_A  = 3.0f;
 
 // Startup calibration: move each spring hook toward the top hard stop with a
 // velocity loop and use the jammed position as home/zero. Positive stretch is
@@ -124,3 +126,11 @@ constexpr float CAM_CX             = 320.0f;   // ≈ width  / 2
 constexpr float CAM_CY             = 240.0f;   // ≈ height / 2
 constexpr float CAM_HEIGHT_M       = 0.50f;    // camera height above dart surface [m]
 constexpr float DART_REST_HEIGHT_M = 0.00f;    // dart z in world frame [m]
+
+// ── Launch trigger motor (TODO: connect to real position-control interface) ──
+// High keeps the bar/latch up. Low pulls the wire and releases the spring.
+constexpr float TRIGGER_HOLD_POS_RAD        = 0.0f;
+constexpr float TRIGGER_RELEASE_POS_RAD     = 1.0f;
+constexpr float TRIGGER_SETTLE_TIME_S       = 0.25f;
+constexpr float TRIGGER_RELEASE_PULSE_S     = 0.35f;
+constexpr float TRIGGER_SAFE_RELEASE_WAIT_S = 0.50f;

@@ -44,9 +44,24 @@ struct ArmState {
 struct SpringStretcherCmd {
     enum class Type {
         Idle,
-        Stretch,    // pull both springs to the configured stretched positions
-        Retract,    // return both motors to their zero/home positions
+        Stretch,      // normal pre-arm: stretch, latch externally, then retract
+        Retract,      // return both motors to their zero/home positions
+        TakeLoad,     // move back to stretched position and hold spring load
+        SafeRetract,  // slowly return home after trigger release
     } type = Type::Idle;
+};
+
+enum class SpringStretcherPhase {
+    Offline,
+    Calibrating,
+    Home,
+    Stretching,
+    HoldingStretched,
+    Retracting,
+    ArmedAndClear,
+    TakingLoad,
+    SafeRetracting,
+    Fault,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,7 +71,35 @@ struct SpringStretcherState {
     std::array<float, 2> position = {};  // left/right cumulative motor angle [rad]
     std::array<float, 2> velocity = {};  // left/right motor velocity [rad/s]
     std::array<float, 2> current  = {};  // left/right command/feedback current [A]
+    SpringStretcherPhase phase = SpringStretcherPhase::Offline;
     bool reached_goal = false;
+    bool armed_and_clear = false;
+    bool holding_load = false;
     bool calibrated   = false;
     bool hw_ok        = false;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Decision → trigger motor
+// ─────────────────────────────────────────────────────────────────────────────
+struct TriggerCmd {
+    enum class Type {
+        Hold,     // bar high: latch/hold spring
+        Release,  // bar low: release spring
+    } type = Type::Hold;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Trigger motor → Decision
+// ─────────────────────────────────────────────────────────────────────────────
+struct TriggerState {
+    enum class Position {
+        Unknown,
+        HoldingHigh,
+        ReleasingLow,
+    } position = Position::Unknown;
+
+    bool settled = false;      // inferred from command age; no sensor in v1
+    bool hw_ok = false;        // TODO hardware interface currently reports true
+    bool inferred = true;      // state is command/time inferred, not sensed
 };

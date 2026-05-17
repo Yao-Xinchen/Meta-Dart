@@ -12,6 +12,7 @@
 
 class ArmModule;
 class SpringStretcherModule;
+class TriggerModule;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DecisionModule — stable-detection-triggered pickup state machine
@@ -27,6 +28,7 @@ public:
     DecisionModule(TripleBuffer<Detection>& detection_buf,
                    ArmModule& arm,
                    SpringStretcherModule& spring_stretcher,
+                   TriggerModule& trigger,
                    DecisionRuntimeConfig config = DecisionRuntimeConfig{});
     ~DecisionModule();
 
@@ -51,6 +53,7 @@ private:
         Homing,
         Searching,
         ExecutingTrajectory,
+        SafeDeenergize,
         ResetCooldown,
     };
 
@@ -67,6 +70,11 @@ private:
                                 int monitor_zone_index = -1);
     bool move_to_loading_and_release();
     bool move_to_search_pose();
+    void refresh_launcher_states();
+    bool ensure_prearm_started();
+    bool wait_for_prearmed(std::chrono::milliseconds timeout);
+    bool fire_loaded_dart();
+    bool safe_deenergize();
     PickupResult execute_pickup_trajectory(int zone_index);
     MoveResult check_dart_motion(int monitor_zone_index);
     bool hold_current_joints();
@@ -78,6 +86,7 @@ private:
     TripleBuffer<Detection>& detection_buf_;
     ArmModule&               arm_;
     SpringStretcherModule&   spring_stretcher_;
+    TriggerModule&           trigger_;
     DecisionRuntimeConfig    config_;
 
     std::thread       thread_;
@@ -91,4 +100,11 @@ private:
     int relocated_zone_index_ = -1;
     int pickup_outside_zone_index_ = -1;
     std::chrono::steady_clock::time_point pickup_outside_t0_{};
+
+    SpringStretcherState latest_stretcher_state_{};
+    TriggerState latest_trigger_state_{};
+    bool have_stretcher_state_ = false;
+    bool have_trigger_state_ = false;
+    bool prearm_requested_ = false;
+    bool dart_loaded_ = false;
 };
