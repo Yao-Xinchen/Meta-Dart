@@ -7,7 +7,7 @@
 //   - Waits until both motors publish feedback.
 //   - Sends a small fixed current for a short time.
 //   - Uses left_dir and right_dir to decide the sign of the current.
-//   - Prints the position delta after the move.
+//   - Prints the output shaft position delta after the move.
 //   - Sends zero current at the end.
 //
 // Use this after test_stretcher_monitor works.

@@ -18,7 +18,8 @@ using namespace std::chrono_literals;
 
 static constexpr float PI = 3.14159265358979323846f;
 static constexpr float M3508_ENCODER_TO_RAD = 2.0f * PI / 8192.0f;
-static constexpr float M3508_RPM_TO_RAD_S = PI / 30.0f;
+static constexpr float M3508_RPM_TO_SHAFT_RAD_S =
+    (PI / 30.0f) / SPRING_STRETCHER_REDUCTION_RATIO;
 static constexpr float M3508_CURRENT_SCALE_A = 20.0f / 16384.0f;
 static constexpr float M3508_CMD_SCALE = 16384.0f / 20.0f;
 static constexpr auto LOOP_PERIOD =
@@ -291,18 +292,21 @@ void SpringStretcherModule::process_feedback(const can_frame& frame)
             static_cast<int16_t>((static_cast<uint16_t>(frame.data[4]) << 8) |
                                  static_cast<uint16_t>(frame.data[5]));
 
-        const float absolute_pos = static_cast<float>(pos_raw) * M3508_ENCODER_TO_RAD;
+        const float rotor_pos = static_cast<float>(pos_raw) * M3508_ENCODER_TO_RAD;
         if (!motor.raw_position_valid) {
-            motor.raw_position = absolute_pos;
+            motor.last_rotor_position = rotor_pos;
+            motor.raw_position = rotor_pos / SPRING_STRETCHER_REDUCTION_RATIO;
             motor.raw_position_valid = true;
         } else {
-            motor.raw_position += wrap_delta(absolute_pos - motor.raw_position);
+            const float rotor_delta = wrap_delta(rotor_pos - motor.last_rotor_position);
+            motor.raw_position += rotor_delta / SPRING_STRETCHER_REDUCTION_RATIO;
+            motor.last_rotor_position = rotor_pos;
         }
 
         if (motor.zeroed) motor.position = motor.raw_position - motor.zero;
         else motor.position = 0.f;
 
-        motor.velocity = static_cast<float>(vel_raw) * M3508_RPM_TO_RAD_S;
+        motor.velocity = static_cast<float>(vel_raw) * M3508_RPM_TO_SHAFT_RAD_S;
         motor.current = static_cast<float>(cur_raw) * M3508_CURRENT_SCALE_A;
         motor.feedback_ok = true;
     }

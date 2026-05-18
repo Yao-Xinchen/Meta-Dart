@@ -78,8 +78,9 @@ constexpr uint8_t SPRING_STRETCHER_LEFT_ID       = 1;     // DJI hardware ID, ra
 constexpr uint8_t SPRING_STRETCHER_RIGHT_ID      = 2;     // DJI hardware ID, range 1-8
 constexpr float SPRING_STRETCHER_LEFT_DIR        = 1.0f;  // flip to -1 if wiring is mirrored
 constexpr float SPRING_STRETCHER_RIGHT_DIR       = -1.0f; // opposite side usually mirrors
+constexpr float SPRING_STRETCHER_REDUCTION_RATIO = 20.0f; // motor rotor angle / output shaft angle
 
-// Tune these on hardware. The stretch distance is motor output angle in radians.
+// Tune these on hardware. Distances and velocities below are output shaft units.
 constexpr float SPRING_STRETCHER_STRETCH_RAD     = 6.0f;
 constexpr float SPRING_STRETCHER_HOME_RAD        = 0.0f;
 constexpr float SPRING_STRETCHER_POS_TOL_RAD     = 0.08f;

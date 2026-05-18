@@ -4,7 +4,7 @@
 //   - First runs the same top-stop calibration as test_stretcher_calibration.
 //   - Treats that top stop as position 0.
 //   - Runs a simple position-to-velocity-to-current controller to move both
-//     hooks to stretch_rad away from the top stop.
+//     output shafts to stretch_rad away from the top stop.
 //   - Holds there for hold_s seconds.
 //   - Retracts both hooks back to home/zero.
 //   - Prints position error and current during stretch/retract.

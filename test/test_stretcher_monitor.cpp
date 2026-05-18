@@ -4,8 +4,8 @@
 //   - Opens the configured SocketCAN interface.
 //   - Listens for feedback frames from the left/right DJI M3508 motors.
 //   - Sends zero current commands, so the motors should not intentionally move.
-//   - Prints raw cumulative position, velocity, current, and whether feedback
-//     has been seen from each motor.
+//   - Prints cumulative output shaft position, output shaft velocity, current,
+//     and whether feedback has been seen from each motor.
 //
 // Use this first, before moving anything.
 //

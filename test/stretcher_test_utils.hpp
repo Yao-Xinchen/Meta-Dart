@@ -22,7 +22,8 @@ namespace stretcher_test {
 
 static constexpr float PI = 3.14159265358979323846f;
 static constexpr float M3508_ENCODER_TO_RAD = 2.0f * PI / 8192.0f;
-static constexpr float M3508_RPM_TO_RAD_S = PI / 30.0f;
+static constexpr float M3508_RPM_TO_SHAFT_RAD_S =
+    (PI / 30.0f) / SPRING_STRETCHER_REDUCTION_RATIO;
 static constexpr float M3508_CURRENT_SCALE_A = 20.0f / 16384.0f;
 static constexpr float M3508_CMD_SCALE = 16384.0f / 20.0f;
 
@@ -44,8 +45,9 @@ struct Feedback {
     int id = 1;
     bool seen = false;
     bool raw_valid = false;
-    float raw_position = 0.f; // cumulative encoder angle since program start [rad]
-    float velocity = 0.f;     // feedback velocity [rad/s]
+    float raw_position = 0.f; // cumulative output shaft angle since program start [rad]
+    float last_rotor_position = 0.f;
+    float velocity = 0.f;     // output shaft velocity [rad/s]
     float current = 0.f;      // feedback current [A]
 };
 
@@ -149,15 +151,18 @@ private:
                 static_cast<int16_t>((static_cast<uint16_t>(frame.data[4]) << 8) |
                                      static_cast<uint16_t>(frame.data[5]));
 
-            const float pos = static_cast<float>(pos_raw) * M3508_ENCODER_TO_RAD;
+            const float rotor_pos = static_cast<float>(pos_raw) * M3508_ENCODER_TO_RAD;
             if (!motor.raw_valid) {
-                motor.raw_position = pos;
+                motor.last_rotor_position = rotor_pos;
+                motor.raw_position = rotor_pos / SPRING_STRETCHER_REDUCTION_RATIO;
                 motor.raw_valid = true;
             } else {
-                motor.raw_position += wrap_delta(pos - motor.raw_position);
+                const float rotor_delta = wrap_delta(rotor_pos - motor.last_rotor_position);
+                motor.raw_position += rotor_delta / SPRING_STRETCHER_REDUCTION_RATIO;
+                motor.last_rotor_position = rotor_pos;
             }
 
-            motor.velocity = static_cast<float>(vel_raw) * M3508_RPM_TO_RAD_S;
+            motor.velocity = static_cast<float>(vel_raw) * M3508_RPM_TO_SHAFT_RAD_S;
             motor.current = static_cast<float>(cur_raw) * M3508_CURRENT_SCALE_A;
             motor.seen = true;
         }
@@ -181,7 +186,7 @@ struct CalibResult {
 
 inline void print_feedback(const std::array<Feedback, 2>& fb)
 {
-    // pos is cumulative raw motor angle, not calibrated hook length.
+    // pos is cumulative output shaft angle, not calibrated hook length.
     // seen=0 means no matching feedback frame has arrived for that motor ID.
     std::printf("left: pos=%8.3f vel=%8.3f cur=%6.2f seen=%d | "
                 "right: pos=%8.3f vel=%8.3f cur=%6.2f seen=%d\n",

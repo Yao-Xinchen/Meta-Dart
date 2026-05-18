@@ -43,6 +43,7 @@ private:
 
         float zero = 0.f;
         float raw_position = 0.f;
+        float last_rotor_position = 0.f;
         float position = 0.f;
         float velocity = 0.f;
         float current = 0.f;

@@ -231,7 +231,7 @@ sudo ./build/test_trajectory positions.xml s0_prep s0_grasp s0_pulled_out loadin
 
 ## Spring Stretcher
 
-The spring stretcher uses two DJI M3508 motors over SocketCAN. The motors do not have an absolute zero, so startup calibration velocity-controls each hook toward the top hard stop. When the hook stops moving for long enough, that top-stop encoder position becomes zero/home.
+The spring stretcher uses two DJI M3508 motors over SocketCAN. Feedback is converted through `SPRING_STRETCHER_REDUCTION_RATIO` before control, so stretcher position and velocity are output-shaft radians and rad/s. The motors do not have an absolute zero, so startup calibration velocity-controls each hook toward the top hard stop. When the hook stops moving for long enough, that top-stop encoder position becomes zero/home.
 
 Normal stretch sequence:
 
@@ -248,6 +248,7 @@ Static stretcher constants in `include/config.hpp`:
 | `SPRING_STRETCHER_CAN_IFACE` | SocketCAN interface, usually `can0`. |
 | `SPRING_STRETCHER_LEFT_ID`, `SPRING_STRETCHER_RIGHT_ID` | DJI hardware IDs. |
 | `SPRING_STRETCHER_LEFT_DIR`, `SPRING_STRETCHER_RIGHT_DIR` | Direction sign. Positive means stretch direction. |
+| `SPRING_STRETCHER_REDUCTION_RATIO` | Motor rotor angle divided by output shaft angle; currently `20.0`. |
 | `SPRING_STRETCHER_STRETCH_RAD` | Pull distance from calibrated top/home. |
 | `SPRING_STRETCHER_HOME_RAD` | Retracted position, usually `0`. |
 | `SPRING_STRETCHER_POS_TOL_RAD` | Position tolerance for goal reached. |
