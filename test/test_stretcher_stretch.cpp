@@ -32,7 +32,15 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <cmath>
 #include <thread>
+
+static float motion_timeout_s(float distance_rad, float max_vel, float settle_margin_s)
+{
+    const float speed = std::fabs(max_vel);
+    if (speed <= 0.001f) return settle_margin_s;
+    return std::fabs(distance_rad) / speed + settle_margin_s;
+}
 
 static bool run_to_target(stretcher_test::M3508Bus& bus,
                           std::array<stretcher_test::Feedback, 2>& fb,
@@ -53,8 +61,9 @@ static bool run_to_target(stretcher_test::M3508Bus& bus,
     bool command_initialized = false;
     float cmd_l = 0.f;
     float cmd_r = 0.f;
+    const bool use_timeout = timeout_s > 0.f;
 
-    while (std::chrono::duration<float>(Clock::now() - t0).count() < timeout_s) {
+    while (!use_timeout || std::chrono::duration<float>(Clock::now() - t0).count() < timeout_s) {
         const auto now = Clock::now();
         float dt = std::chrono::duration<float>(now - prev_update).count();
         if (dt < 0.001f) dt = 0.001f;
@@ -153,9 +162,15 @@ int main(int argc, char** argv)
         SPRING_STRETCHER_RIGHT_DIR);
     if (!calib.ok) return 1;
 
-    std::printf("stretching to %.3f rad\n", stretch_rad);
-    if (!run_to_target(bus, fb, calib.zero, stretch_rad, max_current, pos_kp, vel_kp, max_vel, 6.0f)) {
+    const float stretch_timeout_s = motion_timeout_s(stretch_rad, max_vel, 10.0f);
+    std::printf("stretching to %.3f rad, timeout %.1fs\n", stretch_rad, stretch_timeout_s);
+    if (!run_to_target(bus, fb, calib.zero, stretch_rad, max_current, pos_kp, vel_kp,
+                       max_vel, stretch_timeout_s)) {
         std::fprintf(stderr, "stretch target timed out\n");
+        std::fprintf(stderr, "attempting controlled retract before exit; no retract timeout\n");
+        if (!run_to_target(bus, fb, calib.zero, 0.f, max_current, pos_kp, vel_kp,
+                           max_vel, 0.0f))
+            std::fprintf(stderr, "controlled retract failed; hardware may still be loaded\n");
         return 1;
     }
 
@@ -163,9 +178,10 @@ int main(int argc, char** argv)
     std::this_thread::sleep_for(std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::duration<float>(hold_s)));
 
-    std::printf("retracting to home\n");
-    if (!run_to_target(bus, fb, calib.zero, 0.f, max_current, pos_kp, vel_kp, max_vel, 12.0f)) {
-        std::fprintf(stderr, "retract target timed out\n");
+    std::printf("retracting to home, no timeout\n");
+    if (!run_to_target(bus, fb, calib.zero, 0.f, max_current, pos_kp, vel_kp,
+                       max_vel, 0.0f)) {
+        std::fprintf(stderr, "retract target failed\n");
         return 1;
     }
 
