@@ -290,6 +290,9 @@ sudo ./build/test_stretcher_calibration 6.0 3.0 0.5 0.0 0.5 0.35 4.0 1 -1 can0
 
 # 4. Stretch cycle tuning
 sudo ./build/test_stretcher_stretch 18.0 20.0
+
+# Plot target/actual position after a stretch-cycle run
+python3 test/plot_stretcher_stretch.py /tmp/stretcher_stretch_log.csv
 ```
 
 Tuning order:
@@ -298,6 +301,8 @@ Tuning order:
 2. `test_stretcher_direction`: set `SPRING_STRETCHER_LEFT_DIR` and `SPRING_STRETCHER_RIGHT_DIR`.
 3. `test_stretcher_calibration`: tune calibration velocity control and jam detection.
 4. `test_stretcher_stretch`: tune stretch distance, current limit, `POS_KP`, `VEL_KP`, and max velocity.
+
+`test_stretcher_stretch` writes `/tmp/stretcher_stretch_log.csv` by default. The CSV includes final target, moving position target, actual position, velocity, and current for both stretcher motors. Pass a custom CSV path as the eighth argument if needed.
 
 ## Test Targets
 

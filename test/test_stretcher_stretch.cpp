@@ -26,13 +26,24 @@
 //   - SPRING_STRETCHER_MAX_VEL_RAD_S
 //   - SPRING_STRETCHER_HOLD_TIME_S
 //
-//   sudo ./build/test_stretcher_stretch [stretch_rad] [max_current] [pos_kp] [vel_kp] [max_vel] [hold_s] [can_iface]
+//   sudo ./build/test_stretcher_stretch [stretch_rad] [max_current] [pos_kp] [vel_kp] [max_vel] [hold_s] [can_iface] [csv_path]
+//
+// Current tuning run:
+//   sudo ./build/test_stretcher_stretch 18.0 20.0
+//
+// Plot the default CSV log:
+//   python3 test/plot_stretcher_stretch.py /tmp/stretcher_stretch_log.csv
+//
+// Run with explicit gains and a custom CSV path:
+//   sudo ./build/test_stretcher_stretch 18.0 20.0 20.0 3.4971 3.0 0.25 can0 /tmp/my_stretch.csv
+//   python3 test/plot_stretcher_stretch.py /tmp/my_stretch.csv
 
 #include "stretcher_test_utils.hpp"
 
 #include <chrono>
 #include <cstdlib>
 #include <cmath>
+#include <fstream>
 #include <thread>
 
 static float motion_timeout_s(float distance_rad, float max_vel, float settle_margin_s)
@@ -45,6 +56,9 @@ static float motion_timeout_s(float distance_rad, float max_vel, float settle_ma
 static bool run_to_target(stretcher_test::M3508Bus& bus,
                           std::array<stretcher_test::Feedback, 2>& fb,
                           const std::array<float, 2>& zero,
+                          const std::chrono::steady_clock::time_point& log_t0,
+                          std::ofstream& log,
+                          const char* phase,
                           float target_rad,
                           float max_current,
                           float pos_kp,
@@ -97,6 +111,13 @@ static bool run_to_target(stretcher_test::M3508Bus& bus,
 
         bus.send(cur_l, cur_r, fb[0].id, fb[1].id);
 
+        log << std::chrono::duration<float>(now - log_t0).count() << ','
+            << phase << ','
+            << target_l << ',' << cmd_l << ',' << pos_l << ',' << fb[0].velocity << ','
+            << cur_l << ',' << fb[0].current << ','
+            << target_r << ',' << cmd_r << ',' << pos_r << ',' << fb[1].velocity << ','
+            << cur_r << ',' << fb[1].current << '\n';
+
         if (now >= next_print) {
             std::printf("target=%.3f | left pos=%7.3f cmd=%7.3f vel=%7.3f err=%7.3f cur=%6.2f | "
                         "right pos=%7.3f cmd=%7.3f vel=%7.3f err=%7.3f cur=%6.2f\n",
@@ -133,6 +154,7 @@ int main(int argc, char** argv)
     const float max_vel = (argc > 5) ? std::strtof(argv[5], nullptr) : SPRING_STRETCHER_MAX_VEL_RAD_S;
     const float hold_s = (argc > 6) ? std::strtof(argv[6], nullptr) : SPRING_STRETCHER_HOLD_TIME_S;
     const char* iface = (argc > 7) ? argv[7] : SPRING_STRETCHER_CAN_IFACE;
+    const char* csv_path = (argc > 8) ? argv[8] : "/tmp/stretcher_stretch_log.csv";
 
     std::printf("\n=== Spring stretcher stretch-cycle test ===\n");
     std::printf("Purpose: tune actual spring stretch motion after calibration works.\n");
@@ -140,7 +162,18 @@ int main(int argc, char** argv)
     std::printf("Expected: smooth symmetric motion, no violent oscillation, returns near zero.\n");
     std::printf("Args: stretch=%.3f rad max_current=%.2f A pos_kp=%.2f vel_kp=%.2f max_vel=%.2f hold=%.2fs\n",
                 stretch_rad, max_current, pos_kp, vel_kp, max_vel, hold_s);
-    std::printf("Retract uses the same max_vel and max_current. iface=%s\n\n", iface);
+    std::printf("Retract uses the same max_vel and max_current. iface=%s\n", iface);
+    std::printf("CSV log: %s\n\n", csv_path);
+
+    std::ofstream log(csv_path);
+    if (!log) {
+        std::fprintf(stderr, "cannot open CSV log %s\n", csv_path);
+        return 1;
+    }
+    log << "time_s,phase,"
+        << "left_target,left_cmd,left_pos,left_vel,left_current_cmd,left_current_fb,"
+        << "right_target,right_cmd,right_pos,right_vel,right_current_cmd,right_current_fb\n";
+    const auto log_t0 = std::chrono::steady_clock::now();
 
     stretcher_test::M3508Bus bus;
     if (!bus.open(iface)) return 1;
@@ -164,11 +197,13 @@ int main(int argc, char** argv)
 
     const float stretch_timeout_s = motion_timeout_s(stretch_rad, max_vel, 10.0f);
     std::printf("stretching to %.3f rad, timeout %.1fs\n", stretch_rad, stretch_timeout_s);
-    if (!run_to_target(bus, fb, calib.zero, stretch_rad, max_current, pos_kp, vel_kp,
+    if (!run_to_target(bus, fb, calib.zero, log_t0, log, "stretch",
+                       stretch_rad, max_current, pos_kp, vel_kp,
                        max_vel, stretch_timeout_s)) {
         std::fprintf(stderr, "stretch target timed out\n");
         std::fprintf(stderr, "attempting controlled retract before exit; no retract timeout\n");
-        if (!run_to_target(bus, fb, calib.zero, 0.f, max_current, pos_kp, vel_kp,
+        if (!run_to_target(bus, fb, calib.zero, log_t0, log, "retract_after_stretch_timeout",
+                           0.f, max_current, pos_kp, vel_kp,
                            max_vel, 0.0f))
             std::fprintf(stderr, "controlled retract failed; hardware may still be loaded\n");
         return 1;
@@ -179,7 +214,8 @@ int main(int argc, char** argv)
         std::chrono::duration<float>(hold_s)));
 
     std::printf("retracting to home, no timeout\n");
-    if (!run_to_target(bus, fb, calib.zero, 0.f, max_current, pos_kp, vel_kp,
+    if (!run_to_target(bus, fb, calib.zero, log_t0, log, "retract",
+                       0.f, max_current, pos_kp, vel_kp,
                        max_vel, 0.0f)) {
         std::fprintf(stderr, "retract target failed\n");
         return 1;
