@@ -49,27 +49,51 @@ static bool run_to_target(stretcher_test::M3508Bus& bus,
 
     const auto t0 = Clock::now();
     auto next_print = t0;
+    auto prev_update = t0;
+    bool command_initialized = false;
+    float cmd_l = 0.f;
+    float cmd_r = 0.f;
 
     while (std::chrono::duration<float>(Clock::now() - t0).count() < timeout_s) {
+        const auto now = Clock::now();
+        float dt = std::chrono::duration<float>(now - prev_update).count();
+        if (dt < 0.001f) dt = 0.001f;
+        prev_update = now;
+
         bus.poll(fb);
 
         const float pos_l = fb[0].raw_position - zero[0];
         const float pos_r = fb[1].raw_position - zero[1];
         const float target_l = SPRING_STRETCHER_LEFT_DIR * target_rad;
         const float target_r = SPRING_STRETCHER_RIGHT_DIR * target_rad;
-        const float vel_goal_l = stretcher_test::clamp(pos_kp * (target_l - pos_l), max_vel);
-        const float vel_goal_r = stretcher_test::clamp(pos_kp * (target_r - pos_r), max_vel);
+
+        if (!command_initialized) {
+            cmd_l = pos_l;
+            cmd_r = pos_r;
+            command_initialized = true;
+        }
+
+        const float max_step = max_vel * dt;
+        const float cmd_err_l = target_l - cmd_l;
+        const float cmd_err_r = target_r - cmd_r;
+        cmd_l += (std::fabs(cmd_err_l) <= max_step) ? cmd_err_l
+                                                     : (cmd_err_l > 0.f ? max_step : -max_step);
+        cmd_r += (std::fabs(cmd_err_r) <= max_step) ? cmd_err_r
+                                                     : (cmd_err_r > 0.f ? max_step : -max_step);
+
+        const float vel_goal_l = stretcher_test::clamp(pos_kp * (cmd_l - pos_l), max_vel);
+        const float vel_goal_r = stretcher_test::clamp(pos_kp * (cmd_r - pos_r), max_vel);
         const float cur_l = stretcher_test::clamp(vel_kp * (vel_goal_l - fb[0].velocity), max_current);
         const float cur_r = stretcher_test::clamp(vel_kp * (vel_goal_r - fb[1].velocity), max_current);
 
         bus.send(cur_l, cur_r, fb[0].id, fb[1].id);
 
-        if (Clock::now() >= next_print) {
-            std::printf("target=%.3f | left pos=%7.3f err=%7.3f cur=%6.2f | "
-                        "right pos=%7.3f err=%7.3f cur=%6.2f\n",
+        if (now >= next_print) {
+            std::printf("target=%.3f | left pos=%7.3f cmd=%7.3f vel=%7.3f err=%7.3f cur=%6.2f | "
+                        "right pos=%7.3f cmd=%7.3f vel=%7.3f err=%7.3f cur=%6.2f\n",
                         target_rad,
-                        pos_l, target_l - pos_l, cur_l,
-                        pos_r, target_r - pos_r, cur_r);
+                        pos_l, cmd_l, fb[0].velocity, target_l - pos_l, cur_l,
+                        pos_r, cmd_r, fb[1].velocity, target_r - pos_r, cur_r);
             next_print += 100ms;
         }
 

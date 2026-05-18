@@ -182,6 +182,7 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         for (auto& motor : motors_) {
             motor.command_current = 0.f;
             motor.target = motor.position;
+            motor.command_position = motor.position;
             motor.pos_i = 0.f;
             motor.vel_i = 0.f;
         }
@@ -197,6 +198,7 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         }
         for (auto& motor : motors_) {
             motor.target = motor.direction * SPRING_STRETCHER_STRETCH_RAD;
+            motor.command_position = motor.position;
             motor.pos_i = 0.f;
             motor.vel_i = 0.f;
         }
@@ -214,6 +216,7 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         }
         for (auto& motor : motors_) {
             motor.target = SPRING_STRETCHER_HOME_RAD;
+            motor.command_position = motor.position;
             motor.pos_i = 0.f;
             motor.vel_i = 0.f;
         }
@@ -230,6 +233,7 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         }
         for (auto& motor : motors_) {
             motor.target = motor.direction * SPRING_STRETCHER_STRETCH_RAD;
+            motor.command_position = motor.position;
             motor.pos_i = 0.f;
             motor.vel_i = 0.f;
         }
@@ -247,6 +251,7 @@ void SpringStretcherModule::execute_cmd(const SpringStretcherCmd& cmd)
         }
         for (auto& motor : motors_) {
             motor.target = SPRING_STRETCHER_HOME_RAD;
+            motor.command_position = motor.position;
             motor.pos_i = 0.f;
             motor.vel_i = 0.f;
         }
@@ -335,6 +340,7 @@ void SpringStretcherModule::update_control()
                 SPRING_STRETCHER_HOLD_TIME_S) {
             for (auto& motor : motors_) {
                 motor.target = SPRING_STRETCHER_HOME_RAD;
+                motor.command_position = motor.position;
                 motor.pos_i = 0.f;
                 motor.vel_i = 0.f;
             }
@@ -361,9 +367,17 @@ void SpringStretcherModule::update_control()
         }
 
         const float prev_pos_error = motor.pos_error;
-        motor.pos_error = motor.target - motor.position;
         const float max_vel = SPRING_STRETCHER_MAX_VEL_RAD_S;
         const float max_current = SPRING_STRETCHER_MAX_CURRENT_A;
+        const float max_step = max_vel * dt;
+        const float command_error = motor.target - motor.command_position;
+        if (std::fabs(command_error) <= max_step) {
+            motor.command_position = motor.target;
+        } else {
+            motor.command_position += (command_error > 0.f ? max_step : -max_step);
+        }
+
+        motor.pos_error = motor.command_position - motor.position;
 
         motor.pos_i = clamp(motor.pos_i + motor.pos_error * dt, max_vel);
         const float pos_d = (motor.pos_error - prev_pos_error) / dt;
@@ -433,6 +447,7 @@ void SpringStretcherModule::update_calibration()
             motor.zero = motor.raw_position;
             motor.position = 0.f;
             motor.target = SPRING_STRETCHER_HOME_RAD;
+            motor.command_position = SPRING_STRETCHER_HOME_RAD;
             motor.command_current = 0.f;
             motor.zeroed = true;
             std::printf("[SpringStretcher] motor %d top stop found\n", motor.id);

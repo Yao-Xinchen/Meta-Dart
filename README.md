@@ -262,7 +262,7 @@ Static stretcher constants in `include/config.hpp`:
 | `SPRING_STRETCHER_CALIB_TIMEOUT_S` | Safety timeout for calibration. |
 | `SPRING_STRETCHER_POS_KP/KI/KD` | Position-to-velocity gains. |
 | `SPRING_STRETCHER_VEL_KP/KI/KD` | Velocity-to-current gains. |
-| `SPRING_STRETCHER_MAX_VEL_RAD_S` | Velocity command limit for both stretch and retract. |
+| `SPRING_STRETCHER_MAX_VEL_RAD_S` | Motion-profile speed for the moving position target in both stretch and retract. |
 | `SPRING_STRETCHER_MAX_CURRENT_A` | Current command limit for both stretch and retract. |
 
 ### Spring Stretcher Tuning Tools

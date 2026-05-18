@@ -49,6 +49,7 @@ private:
         float current = 0.f;
 
         float target = 0.f;
+        float command_position = 0.f;
         float command_current = 0.f;
         float pos_error = 0.f;
         float vel_error = 0.f;
