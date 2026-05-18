@@ -55,6 +55,7 @@ add_executable(dart_launcher
     src/arm.cpp
     src/spring_stretcher.cpp
     src/trigger.cpp
+    src/mg995_servo.cpp
     src/decision.cpp
     src/runtime_config.cpp
     ${DXL_SDK_SRCS}
@@ -98,6 +99,15 @@ target_link_libraries(test_vision_camera PRIVATE
 
 target_link_options(test_vision_camera PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
 target_compile_options(test_vision_camera PRIVATE -Wall -Wextra -O2)
+
+# ── MG995 trigger servo test ──────────────────────────────────────────────────
+add_executable(test_mg995_servo
+    test/test_mg995_servo.cpp
+    src/mg995_servo.cpp
+)
+target_include_directories(test_mg995_servo PRIVATE include)
+target_link_libraries(test_mg995_servo PRIVATE pthread)
+target_compile_options(test_mg995_servo PRIVATE -Wall -Wextra -O2)
 
 # ── Spring stretcher tuning utilities ─────────────────────────────────────────
 add_executable(test_stretcher_monitor test/test_stretcher_monitor.cpp)

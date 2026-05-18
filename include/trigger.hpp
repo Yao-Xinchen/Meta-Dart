@@ -5,7 +5,12 @@
 
 #include <atomic>
 #include <chrono>
+#include <memory>
 #include <thread>
+
+namespace mg995 {
+class SysfsPwm;
+}
 
 // -----------------------------------------------------------------------------
 // TriggerModule
@@ -34,7 +39,7 @@ public:
 private:
     void loop();
     void execute_cmd(const TriggerCmd& cmd);
-    void write_trigger_position(float position_rad);
+    bool write_trigger_position(float position_deg);
     void publish_state();
 
     TripleBuffer<TriggerCmd>   cmd_buf_;
@@ -44,5 +49,7 @@ private:
 
     TriggerState::Position commanded_position_ = TriggerState::Position::Unknown;
     std::chrono::steady_clock::time_point command_time_{};
-    bool hw_ok_ = true;
+    std::unique_ptr<mg995::SysfsPwm> pwm_;
+    float last_position_deg_ = 90.0f;
+    bool hw_ok_ = false;
 };

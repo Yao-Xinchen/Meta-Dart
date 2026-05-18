@@ -37,8 +37,9 @@ firing, and safety recovery.
 stops, stretches the spring, retracts the stretcher motors after the spring is
 latched by the trigger, and can run a slow safe-retract sequence.
 
-`TriggerModule` owns the launch trigger motor. It exposes a binary interface:
-high/hold and low/release. The current hardware write function is a TODO stub.
+`TriggerModule` owns the launch trigger MG995 servo. It exposes a binary
+interface: high/hold and low/release. The servo is commanded through Linux
+sysfs PWM using the shared `mg995::SysfsPwm` helper.
 
 ## Main Decision States
 
@@ -230,9 +231,25 @@ Safety de-energize may release the trigger only after:
 spring_stretcher.holding_load == true
 ```
 
-## Hardware TODO
+## Trigger Hardware
 
-`TriggerModule::write_trigger_position()` is still a stub. Replace it with the
-real trigger motor position command once the motor/controller interface is
-chosen. Keep the public module behavior binary: `hold()` for bar high and
-`release()` for bar low.
+`TriggerModule::write_trigger_position()` maps the binary trigger commands to
+MG995 servo angles:
+
+```text
+hold()    -> TRIGGER_HOLD_POS_DEG
+release() -> TRIGGER_RELEASE_POS_DEG
+```
+
+The PWM chip defaults to `TRIGGER_PWM_CHIP = "auto"`, which searches for the
+Orange Pi `fd8b0000.pwm` device used by the standalone
+`test_mg995_servo` utility. Tune the hold/release angles with:
+
+```text
+sudo ./build/test_mg995_servo auto 0 hold
+sudo ./build/test_mg995_servo auto 0 release
+sudo ./build/test_mg995_servo auto 0 fire <hold_deg> <release_deg> <hold_ms>
+```
+
+Keep the public module behavior binary: `hold()` for bar high and `release()`
+for bar low.

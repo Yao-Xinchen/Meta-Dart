@@ -127,10 +127,12 @@ constexpr float CAM_CY             = 240.0f;   // ≈ height / 2
 constexpr float CAM_HEIGHT_M       = 0.50f;    // camera height above dart surface [m]
 constexpr float DART_REST_HEIGHT_M = 0.00f;    // dart z in world frame [m]
 
-// ── Launch trigger motor (TODO: connect to real position-control interface) ──
+// ── Launch trigger MG995 servo over Linux sysfs PWM ──────────────────────────
 // High keeps the bar/latch up. Low pulls the wire and releases the spring.
-constexpr float TRIGGER_HOLD_POS_RAD        = 0.0f;
-constexpr float TRIGGER_RELEASE_POS_RAD     = 1.0f;
+constexpr const char* TRIGGER_PWM_CHIP      = "auto";  // auto/pin18/pwm0-m1 or /sys/class/pwm/pwmchipN
+constexpr int TRIGGER_PWM_CHANNEL           = 0;
+constexpr float TRIGGER_HOLD_POS_DEG        = 90.0f;
+constexpr float TRIGGER_RELEASE_POS_DEG     = 45.0f;
 constexpr float TRIGGER_SETTLE_TIME_S       = 0.25f;
 constexpr float TRIGGER_RELEASE_PULSE_S     = 0.35f;
 constexpr float TRIGGER_SAFE_RELEASE_WAIT_S = 0.50f;
