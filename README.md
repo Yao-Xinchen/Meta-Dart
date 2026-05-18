@@ -262,8 +262,8 @@ Static stretcher constants in `include/config.hpp`:
 | `SPRING_STRETCHER_CALIB_TIMEOUT_S` | Safety timeout for calibration. |
 | `SPRING_STRETCHER_POS_KP/KI/KD` | Position-to-velocity gains. |
 | `SPRING_STRETCHER_VEL_KP/KI/KD` | Velocity-to-current gains. |
-| `SPRING_STRETCHER_MAX_VEL_RAD_S` | Velocity command limit. |
-| `SPRING_STRETCHER_MAX_CURRENT_A` | Current command limit. |
+| `SPRING_STRETCHER_MAX_VEL_RAD_S` | Velocity command limit for both stretch and retract. |
+| `SPRING_STRETCHER_MAX_CURRENT_A` | Current command limit for both stretch and retract. |
 
 ### Spring Stretcher Tuning Tools
 
@@ -289,7 +289,7 @@ sudo ./build/test_stretcher_direction 1.0 1.0 1 -1 can0
 sudo ./build/test_stretcher_calibration 6.0 3.0 0.5 0.0 0.5 0.35 4.0 1 -1 can0
 
 # 4. Stretch cycle tuning
-sudo ./build/test_stretcher_stretch 6.0 10.0 35.0 0.6 60.0 0.25 can0
+sudo ./build/test_stretcher_stretch 18.0 20.0
 ```
 
 Tuning order:

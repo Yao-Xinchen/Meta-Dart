@@ -362,13 +362,8 @@ void SpringStretcherModule::update_control()
 
         const float prev_pos_error = motor.pos_error;
         motor.pos_error = motor.target - motor.position;
-        const bool safe_retract = phase_ == SpringStretcherPhase::SafeRetracting;
-        const float max_vel = safe_retract
-            ? SPRING_STRETCHER_SAFE_RETRACT_VEL_RAD_S
-            : SPRING_STRETCHER_MAX_VEL_RAD_S;
-        const float max_current = safe_retract
-            ? SPRING_STRETCHER_SAFE_RETRACT_CURRENT_A
-            : SPRING_STRETCHER_MAX_CURRENT_A;
+        const float max_vel = SPRING_STRETCHER_MAX_VEL_RAD_S;
+        const float max_current = SPRING_STRETCHER_MAX_CURRENT_A;
 
         motor.pos_i = clamp(motor.pos_i + motor.pos_error * dt, max_vel);
         const float pos_d = (motor.pos_error - prev_pos_error) / dt;

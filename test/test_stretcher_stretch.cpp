@@ -26,7 +26,7 @@
 //   - SPRING_STRETCHER_MAX_VEL_RAD_S
 //   - SPRING_STRETCHER_HOLD_TIME_S
 //
-//   sudo ./build/test_stretcher_stretch [stretch_rad] [max_current] [pos_kp] [vel_kp] [max_vel] [hold_s]
+//   sudo ./build/test_stretcher_stretch [stretch_rad] [max_current] [pos_kp] [vel_kp] [max_vel] [hold_s] [can_iface]
 
 #include "stretcher_test_utils.hpp"
 
@@ -105,8 +105,9 @@ int main(int argc, char** argv)
     std::printf("Purpose: tune actual spring stretch motion after calibration works.\n");
     std::printf("Sequence: calibrate top -> stretch -> hold -> retract home.\n");
     std::printf("Expected: smooth symmetric motion, no violent oscillation, returns near zero.\n");
-    std::printf("Args: stretch=%.3f rad max_current=%.2f A pos_kp=%.2f vel_kp=%.2f max_vel=%.2f hold=%.2fs iface=%s\n\n",
-                stretch_rad, max_current, pos_kp, vel_kp, max_vel, hold_s, iface);
+    std::printf("Args: stretch=%.3f rad max_current=%.2f A pos_kp=%.2f vel_kp=%.2f max_vel=%.2f hold=%.2fs\n",
+                stretch_rad, max_current, pos_kp, vel_kp, max_vel, hold_s);
+    std::printf("Retract uses the same max_vel and max_current. iface=%s\n\n", iface);
 
     stretcher_test::M3508Bus bus;
     if (!bus.open(iface)) return 1;
@@ -139,7 +140,7 @@ int main(int argc, char** argv)
         std::chrono::duration<float>(hold_s)));
 
     std::printf("retracting to home\n");
-    if (!run_to_target(bus, fb, calib.zero, 0.f, max_current, pos_kp, vel_kp, max_vel, 6.0f)) {
+    if (!run_to_target(bus, fb, calib.zero, 0.f, max_current, pos_kp, vel_kp, max_vel, 12.0f)) {
         std::fprintf(stderr, "retract target timed out\n");
         return 1;
     }

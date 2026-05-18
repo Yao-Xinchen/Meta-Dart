@@ -86,19 +86,17 @@ constexpr float SPRING_STRETCHER_HOME_RAD        = 0.0f;
 constexpr float SPRING_STRETCHER_POS_TOL_RAD     = 0.08f;
 constexpr float SPRING_STRETCHER_VEL_TOL_RAD_S   = 1.0f;
 constexpr float SPRING_STRETCHER_HOLD_TIME_S     = 0.25f;
-constexpr float SPRING_STRETCHER_SAFE_RETRACT_VEL_RAD_S = 6.0f;
-constexpr float SPRING_STRETCHER_SAFE_RETRACT_CURRENT_A  = 3.0f;
 
 // Startup calibration: move each spring hook toward the top hard stop with a
 // velocity loop and use the jammed position as home/zero. Positive stretch is
 // motor.direction, so calibration moves in the opposite direction.
-constexpr float SPRING_STRETCHER_CALIB_VEL_RAD_S = 6.0f;
-constexpr float SPRING_STRETCHER_CALIB_MAX_CURRENT_A = 3.0f;
-constexpr float SPRING_STRETCHER_CALIB_VEL_KP = 0.5f;
-constexpr float SPRING_STRETCHER_CALIB_VEL_KD = 0.0f;
-constexpr float SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S = 0.5f;
-constexpr float SPRING_STRETCHER_CALIB_JAM_TIME_S = 0.35f;
-constexpr float SPRING_STRETCHER_CALIB_TIMEOUT_S = 4.0f;
+constexpr float SPRING_STRETCHER_CALIB_VEL_RAD_S = 2.0f;
+constexpr float SPRING_STRETCHER_CALIB_MAX_CURRENT_A = 2.0f;
+constexpr float SPRING_STRETCHER_CALIB_VEL_KP = 0.6f;
+constexpr float SPRING_STRETCHER_CALIB_VEL_KD = 0.0000112f;
+constexpr float SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S = 1.0f;
+constexpr float SPRING_STRETCHER_CALIB_JAM_TIME_S = 0.25f;
+constexpr float SPRING_STRETCHER_CALIB_TIMEOUT_S = 10.0f;
 
 // Cascaded position-to-velocity-to-current gains. Converted from
 // Meta-Embedded dart STORE_ENERGY M3508 params:
@@ -111,8 +109,8 @@ constexpr float SPRING_STRETCHER_POS_KD          = 0.0016f;
 constexpr float SPRING_STRETCHER_VEL_KP          = 3.4971f;
 constexpr float SPRING_STRETCHER_VEL_KI          = 0.8743f;
 constexpr float SPRING_STRETCHER_VEL_KD          = 0.0000112f;
-constexpr float SPRING_STRETCHER_MAX_VEL_RAD_S   = 52.36f;
-constexpr float SPRING_STRETCHER_MAX_CURRENT_A   = 7.324f;
+constexpr float SPRING_STRETCHER_MAX_VEL_RAD_S   = 3.0f;
+constexpr float SPRING_STRETCHER_MAX_CURRENT_A   = 20.0f;
 
 // ── Vision / ONNX ─────────────────────────────────────────────────────────────
 constexpr bool        VISION_TIMING_DEBUG  = false;  // print per-frame timing stats
