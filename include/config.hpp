@@ -100,15 +100,19 @@ constexpr float SPRING_STRETCHER_CALIB_JAM_VEL_RAD_S = 0.5f;
 constexpr float SPRING_STRETCHER_CALIB_JAM_TIME_S = 0.35f;
 constexpr float SPRING_STRETCHER_CALIB_TIMEOUT_S = 4.0f;
 
-// Cascaded position-to-velocity-to-current gains. Feedback current is in amps.
-constexpr float SPRING_STRETCHER_POS_KP          = 35.0f;
+// Cascaded position-to-velocity-to-current gains. Converted from
+// Meta-Embedded dart STORE_ENERGY M3508 params:
+// a2v {20, 0, 0.2, 100, 3000}, v2i {50, 0.1, 0.02, 2000, 6000}.
+// Meta-Embedded uses output-shaft deg/deg-s at 8 ms and raw DJI current;
+// this module uses output-shaft rad/rad-s at 2 ms and amps.
+constexpr float SPRING_STRETCHER_POS_KP          = 20.0f;
 constexpr float SPRING_STRETCHER_POS_KI          = 0.0f;
-constexpr float SPRING_STRETCHER_POS_KD          = 0.0f;
-constexpr float SPRING_STRETCHER_VEL_KP          = 0.6f;
-constexpr float SPRING_STRETCHER_VEL_KI          = 0.0f;
-constexpr float SPRING_STRETCHER_VEL_KD          = 0.0f;
-constexpr float SPRING_STRETCHER_MAX_VEL_RAD_S   = 60.0f;
-constexpr float SPRING_STRETCHER_MAX_CURRENT_A   = 10.0f;
+constexpr float SPRING_STRETCHER_POS_KD          = 0.0016f;
+constexpr float SPRING_STRETCHER_VEL_KP          = 3.4971f;
+constexpr float SPRING_STRETCHER_VEL_KI          = 0.8743f;
+constexpr float SPRING_STRETCHER_VEL_KD          = 0.0000112f;
+constexpr float SPRING_STRETCHER_MAX_VEL_RAD_S   = 52.36f;
+constexpr float SPRING_STRETCHER_MAX_CURRENT_A   = 7.324f;
 
 // ── Vision / ONNX ─────────────────────────────────────────────────────────────
 constexpr bool        VISION_TIMING_DEBUG  = false;  // print per-frame timing stats
