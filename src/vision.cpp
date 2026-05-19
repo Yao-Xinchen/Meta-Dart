@@ -193,9 +193,12 @@ void VisionModule::loop()
                 // ── Detection ────────────────────────────────────────────────
                 OBBResult obb = postprocess(raw, n_anchor);
 
-                // ── Visualization ─────────────────────────────────────────────
+                // ── Detection mapping / optional visualization ───────────────
                 auto tv0 = Clock::now();
-                cv::Mat vis = frame.image.clone();
+                cv::Mat vis;
+                if (VISION_SHOW_WINDOW) {
+                    vis = frame.image.clone();
+                }
 
                 if (obb.valid) {
                     pixel_to_world(obb.cx, obb.cy,
@@ -204,40 +207,44 @@ void VisionModule::loop()
                     det.z     = DART_REST_HEIGHT_M;
                     det.valid = true;
 
-                    float sx = static_cast<float>(frame.image.cols) / YOLO_INPUT_W;
-                    float sy = static_cast<float>(frame.image.rows) / YOLO_INPUT_H;
+                    if (VISION_SHOW_WINDOW) {
+                        float sx = static_cast<float>(frame.image.cols) / YOLO_INPUT_W;
+                        float sy = static_cast<float>(frame.image.rows) / YOLO_INPUT_H;
 
-                    cv::RotatedRect rrect(
-                        cv::Point2f(obb.cx * sx, obb.cy * sy),
-                        cv::Size2f(obb.w * sx, obb.h * sy),
-                        obb.angle * (180.0f / 3.14159265f));
+                        cv::RotatedRect rrect(
+                            cv::Point2f(obb.cx * sx, obb.cy * sy),
+                            cv::Size2f(obb.w * sx, obb.h * sy),
+                            obb.angle * (180.0f / 3.14159265f));
 
-                    cv::Point2f corners[4];
-                    rrect.points(corners);
-                    for (int i = 0; i < 4; ++i)
-                        cv::line(vis, corners[i], corners[(i + 1) % 4],
-                                 cv::Scalar(0, 255, 0), 2);
-                    cv::circle(vis, rrect.center, 5, cv::Scalar(0, 0, 255), -1);
+                        cv::Point2f corners[4];
+                        rrect.points(corners);
+                        for (int i = 0; i < 4; ++i)
+                            cv::line(vis, corners[i], corners[(i + 1) % 4],
+                                     cv::Scalar(0, 255, 0), 2);
+                        cv::circle(vis, rrect.center, 5, cv::Scalar(0, 0, 255), -1);
 
-                    char label[80];
-                    std::snprintf(label, sizeof(label),
-                                  "conf=%.2f  (%.3fm, %.3fm)",
-                                  obb.conf, det.x, det.y);
-                    cv::putText(vis, label, cv::Point(10, 30),
-                                cv::FONT_HERSHEY_SIMPLEX, 0.7,
-                                cv::Scalar(255, 255, 0), 2);
+                        char label[80];
+                        std::snprintf(label, sizeof(label),
+                                      "conf=%.2f  (%.3fm, %.3fm)",
+                                      obb.conf, det.x, det.y);
+                        cv::putText(vis, label, cv::Point(10, 30),
+                                    cv::FONT_HERSHEY_SIMPLEX, 0.7,
+                                    cv::Scalar(255, 255, 0), 2);
+                    }
                 }
 
-                if (!window_initialized) {
+                if (VISION_SHOW_WINDOW && !window_initialized) {
                     cv::namedWindow(VISION_WINDOW_NAME, cv::WINDOW_NORMAL);
                     cv::resizeWindow(VISION_WINDOW_NAME, VISION_WINDOW_W, VISION_WINDOW_H);
                     window_initialized = true;
                 }
 
-                cv::imshow(VISION_WINDOW_NAME, vis);
-                const int key = cv::waitKey(1);
-                if (key == 'q' || key == 'Q')
-                    std::raise(SIGUSR1);
+                if (VISION_SHOW_WINDOW) {
+                    cv::imshow(VISION_WINDOW_NAME, vis);
+                    const int key = cv::waitKey(1);
+                    if (key == 'q' || key == 'Q')
+                        std::raise(SIGUSR1);
+                }
                 dt_vis = ms(Clock::now() - tv0);
             }
         }
@@ -261,5 +268,7 @@ void VisionModule::loop()
         std::this_thread::sleep_until(t0 + period);
     }
 
-    cv::destroyAllWindows();
+    if (VISION_SHOW_WINDOW) {
+        cv::destroyAllWindows();
+    }
 }

@@ -118,6 +118,7 @@ constexpr const char* ONNX_MODEL_PATH     = "models/best.onnx";
 constexpr int         YOLO_INPUT_W        = 640;
 constexpr int         YOLO_INPUT_H        = 640;
 constexpr float       CONF_THRESHOLD      = 0.40f;
+constexpr bool        VISION_SHOW_WINDOW  = false;
 constexpr const char* VISION_WINDOW_NAME  = "Meta-Dart Vision";
 constexpr int         VISION_WINDOW_W     = 1800;
 constexpr int         VISION_WINDOW_H     = 1000;
