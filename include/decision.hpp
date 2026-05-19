@@ -72,7 +72,7 @@ private:
     MoveResult move_to_and_wait(const std::string& name,
                                 bool stop_at_goal = true,
                                 int monitor_zone_index = -1);
-    bool move_to_loading_and_release();
+    bool move_to_loading_and_release(const std::string& loading_pose);
     bool move_to_search_pose();
     void refresh_launcher_states();
     bool ensure_prearm_started();

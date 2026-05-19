@@ -7,11 +7,10 @@
     "search_stability_grace_s": 0.45,
     "search_stability_bbox_margin_m": 0.005,
     "reset_cooldown_s": 0.0,
-    "search_wait_pose": "backward_prep",
+    "search_wait_pose": "prepare",
     "search_ready_sequence": [
       "home",
-      "forward_prep",
-      "backward_prep"
+      "prepare"
     ],
     "homing_move_duration_s": 4.0,
     "min_segment_duration_s": 2.0,
@@ -81,42 +80,42 @@
       "slot_0": [
         {"position": "s0_prep", "gripper": "open"},
         {"position": "s0_grasp", "gripper": "close"},
-        {"position": "s0_pulled_out", "gripper": "none"},
-        {"position": "backward_prep", "gripper": "none"},
-        {"position": "forward_prep", "gripper": "none"},
-        {"position": "loading", "gripper": "open"},
-        {"position": "high_prep", "gripper": "none"},
-        {"position": "backward_prep", "gripper": "none"}
+        {"position": "s0_pull", "gripper": "none"},
+        {"position": "s0_up", "gripper": "none"},
+        {"position": "load_prep", "gripper": "none"},
+        {"position": "load", "gripper": "open"},
+        {"position": "load_done", "gripper": "none"},
+        {"position": "prepare", "gripper": "none"}
       ],
       "slot_1": [
         {"position": "s1_prep", "gripper": "open"},
         {"position": "s1_grasp", "gripper": "close"},
-        {"position": "s1_pulled_out", "gripper": "none"},
-        {"position": "backward_prep", "gripper": "none"},
-        {"position": "forward_prep", "gripper": "none"},
-        {"position": "loading", "gripper": "open"},
-        {"position": "high_prep", "gripper": "none"},
-        {"position": "backward_prep", "gripper": "none"}
+        {"position": "s1_pull", "gripper": "none"},
+        {"position": "s1_up", "gripper": "none"},
+        {"position": "load_prep", "gripper": "none"},
+        {"position": "load", "gripper": "open"},
+        {"position": "load_done", "gripper": "none"},
+        {"position": "prepare", "gripper": "none"}
       ],
       "slot_2": [
         {"position": "s2_prep", "gripper": "open"},
         {"position": "s2_grasp", "gripper": "close"},
-        {"position": "s2_pulled_out", "gripper": "none"},
-        {"position": "backward_prep", "gripper": "none"},
-        {"position": "forward_prep", "gripper": "none"},
-        {"position": "loading", "gripper": "open"},
-        {"position": "high_prep", "gripper": "none"},
-        {"position": "backward_prep", "gripper": "none"}
+        {"position": "s2_pull", "gripper": "none"},
+        {"position": "s2_up", "gripper": "none"},
+        {"position": "load_prep", "gripper": "none"},
+        {"position": "load", "gripper": "open"},
+        {"position": "load_done", "gripper": "none"},
+        {"position": "prepare", "gripper": "none"}
       ],
       "slot_3": [
         {"position": "s3_prep", "gripper": "open"},
         {"position": "s3_grasp", "gripper": "close"},
-        {"position": "s3_pulled_out", "gripper": "none"},
-        {"position": "backward_prep", "gripper": "none"},
-        {"position": "forward_prep", "gripper": "none"},
-        {"position": "loading", "gripper": "open"},
-        {"position": "high_prep", "gripper": "none"},
-        {"position": "backward_prep", "gripper": "none"}
+        {"position": "s3_pull", "gripper": "none"},
+        {"position": "s3_up", "gripper": "none"},
+        {"position": "load_prep", "gripper": "none"},
+        {"position": "load", "gripper": "open"},
+        {"position": "load_done", "gripper": "none"},
+        {"position": "prepare", "gripper": "none"}
       ]
     }
   }

@@ -121,7 +121,8 @@ bool is_prep_position(const std::string& position)
 
 bool is_loading_release_step(const DecisionTrajectoryStep& step)
 {
-    return step.position == "loading" && step.gripper == GripperAction::Open;
+    return (step.position == "loading" || step.position == "load") &&
+           step.gripper == GripperAction::Open;
 }
 
 }  // namespace
@@ -355,7 +356,7 @@ DecisionModule::MoveResult DecisionModule::move_to_and_wait(const std::string& n
     return MoveResult::Failed;
 }
 
-bool DecisionModule::move_to_loading_and_release()
+bool DecisionModule::move_to_loading_and_release(const std::string& loading_pose)
 {
     ArmState state{};
     std::array<float, 4> target{};
@@ -366,8 +367,9 @@ bool DecisionModule::move_to_loading_and_release()
         return false;
     }
 
-    if (!arm_.get_position("loading", target)) {
-        mdlog::error("Decision", "unknown or unavailable position: loading");
+    if (!arm_.get_position(loading_pose, target)) {
+        mdlog::error("Decision", "unknown or unavailable position: %s",
+                     loading_pose.c_str());
         return false;
     }
 
@@ -376,7 +378,7 @@ bool DecisionModule::move_to_loading_and_release()
         ? duration_for_segment(state.joints, target, config_)
         : config_.homing_move_duration_s;
 
-    mdlog::assembling("move to loading %.2fs", duration);
+    mdlog::assembling("move to %s %.2fs", loading_pose.c_str(), duration);
     arm_.move_joints(target, duration);
 
     if (!sleep_interruptible(std::chrono::milliseconds((1000 / ARM_LOOP_HZ) * 3)))
@@ -387,10 +389,11 @@ bool DecisionModule::move_to_loading_and_release()
                                         seconds_to_ms(config_.move_timeout_s),
                                         -1);
     if (result == MoveResult::Arrived) {
-        mdlog::catch_("loading reached; opening gripper");
+        mdlog::catch_("%s reached; opening gripper", loading_pose.c_str());
     } else {
-        mdlog::disturb("loading not fully reached after %.1fs; opening gripper anyway",
-                    config_.move_timeout_s);
+        mdlog::disturb("%s not fully reached after %.1fs; opening gripper anyway",
+                       loading_pose.c_str(),
+                       config_.move_timeout_s);
     }
 
     arm_.release();
@@ -786,7 +789,7 @@ DecisionModule::PickupResult DecisionModule::execute_pickup_trajectory(int zone_
             if (!running_) return PickupResult::Failed;
 
             if (is_loading_release_step(step)) {
-                if (!move_to_loading_and_release())
+                if (!move_to_loading_and_release(step.position))
                     return PickupResult::Failed;
                 continue;
             }

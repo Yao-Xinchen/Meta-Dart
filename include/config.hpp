@@ -14,7 +14,7 @@ constexpr uint8_t DXL_ID_J4       = 14;   // wrist pitch
 constexpr uint8_t DXL_ID_GRIPPER  = 15;
 
 // ── Camera ────────────────────────────────────────────────────────────────────
-constexpr int CAMERA_INDEX         = 2;    // matches temp/camera.cpp
+constexpr int CAMERA_INDEX         = 0;    // matches temp/camera.cpp
 
 // ── Arm geometry (OpenManipulator-X DH link lengths, metres) ─────────────────
 // L1: base-to-shoulder vertical offset
@@ -70,7 +70,7 @@ constexpr int32_t JOINT_POSITION_D_GAIN      = 0;
 constexpr float JOINT_GOAL_WRITE_DEADBAND    = 0.002f;  // rad
 
 // ── Arm positions ─────────────────────────────────────────────────────────────
-constexpr const char* POSITIONS_XML_PATH = "positions.xml";
+constexpr const char* POSITIONS_XML_PATH = "data/positions.xml";
 
 // ── Dart launcher spring stretcher motors (DJI M3508 over SocketCAN) ─────────
 constexpr const char* SPRING_STRETCHER_CAN_IFACE = "can0";
@@ -81,7 +81,7 @@ constexpr float SPRING_STRETCHER_RIGHT_DIR       = -1.0f; // opposite side usual
 constexpr float SPRING_STRETCHER_REDUCTION_RATIO = 20.0f; // motor rotor angle / output shaft angle
 
 // Tune these on hardware. Distances and velocities below are output shaft units.
-constexpr float SPRING_STRETCHER_STRETCH_RAD     = 6.0f;
+constexpr float SPRING_STRETCHER_STRETCH_RAD     = 35.0f;
 constexpr float SPRING_STRETCHER_HOME_RAD        = 0.0f;
 constexpr float SPRING_STRETCHER_POS_TOL_RAD     = 0.08f;
 constexpr float SPRING_STRETCHER_VEL_TOL_RAD_S   = 1.0f;
@@ -134,8 +134,8 @@ constexpr float DART_REST_HEIGHT_M = 0.00f;    // dart z in world frame [m]
 // High keeps the bar/latch up. Low pulls the wire and releases the spring.
 constexpr const char* TRIGGER_PWM_CHIP      = "auto";  // auto/pin18/pwm0-m1 or /sys/class/pwm/pwmchipN
 constexpr int TRIGGER_PWM_CHANNEL           = 0;
-constexpr float TRIGGER_HOLD_POS_DEG        = 90.0f;
-constexpr float TRIGGER_RELEASE_POS_DEG     = 45.0f;
+constexpr float TRIGGER_HOLD_POS_DEG        = 100.0f;
+constexpr float TRIGGER_RELEASE_POS_DEG     = 60.0f;
 constexpr float TRIGGER_SETTLE_TIME_S       = 0.25f;
 constexpr float TRIGGER_RELEASE_PULSE_S     = 0.35f;
 constexpr float TRIGGER_SAFE_RELEASE_WAIT_S = 0.50f;
