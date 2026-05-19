@@ -125,15 +125,16 @@ bool SysfsPwm::open()
         return false;
     }
 
-    disable();
-    if (std::filesystem::exists(pwm_ / "polarity")) {
-        if (!write_text(pwm_ / "polarity", "normal"))
-            return false;
-    }
+    // period and duty_cycle must be set before enable/polarity can be written
     if (!write_text(pwm_ / "period", std::to_string(PERIOD_NS)))
         return false;
     if (!write_text(pwm_ / "duty_cycle", "0"))
         return false;
+    if (std::filesystem::exists(pwm_ / "polarity")) {
+        if (!write_text(pwm_ / "polarity", "normal"))
+            return false;
+    }
+    disable();
 
     return true;
 }
