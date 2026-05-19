@@ -153,6 +153,13 @@ void DecisionModule::stop() {
     running_ = false;
     advance_step();  // unblock FSM if held in wait_for_step()
     if (thread_.joinable()) thread_.join();
+
+    // FSM thread is done. Re-enable running_ so safe_deenergize()'s wait
+    // loops can complete — this is single-threaded at this point.
+    running_ = true;
+    mdlog::event("Decision", "shutdown: safe deenergize");
+    safe_deenergize();
+    running_ = false;
 }
 
 void DecisionModule::advance_step() {
