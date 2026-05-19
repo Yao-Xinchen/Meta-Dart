@@ -151,7 +151,19 @@ bool DecisionModule::start() {
 
 void DecisionModule::stop() {
     running_ = false;
+    advance_step();  // unblock FSM if held in wait_for_step()
     if (thread_.joinable()) thread_.join();
+}
+
+void DecisionModule::advance_step() {
+    { std::lock_guard<std::mutex> lk(step_mutex_); step_ready_ = true; }
+    step_cv_.notify_one();
+}
+
+void DecisionModule::wait_for_step() {
+    std::unique_lock<std::mutex> lk(step_mutex_);
+    step_cv_.wait(lk, [this] { return step_ready_ || !running_; });
+    step_ready_ = false;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -934,6 +946,13 @@ void DecisionModule::loop() {
                 break;
             }
             prev_state = state_;
+
+            if (step_mode_) {
+                mdlog::event("Debug", "holding before %s — press ENTER or SPACE to advance",
+                             state_name(state_));
+                wait_for_step();
+                if (!running_) break;
+            }
         }
 
         switch (state_) {

@@ -63,7 +63,7 @@ private:
     bool active_ = false;
 };
 
-static void keyboard_loop()
+static void keyboard_loop(DecisionModule* step_target = nullptr)
 {
     using namespace std::chrono_literals;
 
@@ -76,10 +76,14 @@ static void keyboard_loop()
     while (!g_shutdown) {
         char ch = '\0';
         const ssize_t n = read(STDIN_FILENO, &ch, 1);
-        if (n > 0 && (ch == 'q' || ch == 'Q')) {
-            g_keyboard_quit = true;
-            g_shutdown = true;
-            break;
+        if (n > 0) {
+            if (ch == 'q' || ch == 'Q') {
+                g_keyboard_quit = true;
+                g_shutdown = true;
+                break;
+            } else if (step_target && (ch == ' ' || ch == '\n' || ch == '\r')) {
+                step_target->advance_step();
+            }
         }
         std::this_thread::sleep_for(30ms);
     }
@@ -249,9 +253,13 @@ int main(int argc, char* argv[]) {
 
     decision.start();
 
-    std::thread keyboard_thread(keyboard_loop);
+    std::thread keyboard_thread(keyboard_loop, &decision);
 
+#ifdef DEBUG_STEP_MODE
+    mdlog::event("Main", "running in STEP MODE; press ENTER/SPACE to advance state, q to quit");
+#else
     mdlog::event("Main", "running; press q to stop, return home, and disconnect; Ctrl-C stops normally");
+#endif
 
     // ── Spin until SIGINT ─────────────────────────────────────────────────
     while (!g_shutdown) {

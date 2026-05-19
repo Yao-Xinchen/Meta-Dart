@@ -47,8 +47,8 @@ set(DXL_INCLUDE_DIRS
 # Shared sources for targets that drive the arm directly
 set(ARM_SRCS src/arm.cpp ${DXL_SDK_SRCS} ${DXL_WB_SRCS})
 
-# ── Main executable ───────────────────────────────────────────────────────────
-add_executable(dart_launcher
+# ── Main executables (release + debug-step) ───────────────────────────────────
+set(LAUNCHER_SRCS
     src/main.cpp
     src/camera.cpp
     src/vision.cpp
@@ -62,21 +62,24 @@ add_executable(dart_launcher
     ${DXL_WB_SRCS}
 )
 
-target_include_directories(dart_launcher PRIVATE
-    include
-    ${OpenCV_INCLUDE_DIRS}
-    ${DXL_INCLUDE_DIRS}
-    ${ORT_ROOT}/include
-)
+foreach(target dart_launcher dart_launcher_debug)
+    add_executable(${target} ${LAUNCHER_SRCS})
+    target_include_directories(${target} PRIVATE
+        include
+        ${OpenCV_INCLUDE_DIRS}
+        ${DXL_INCLUDE_DIRS}
+        ${ORT_ROOT}/include
+    )
+    target_link_libraries(${target} PRIVATE
+        ${OpenCV_LIBS}
+        pthread
+        ${ORT_ROOT}/lib/libonnxruntime.so
+    )
+    target_link_options(${target} PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
+    target_compile_options(${target} PRIVATE -Wall -Wextra -O2)
+endforeach()
 
-target_link_libraries(dart_launcher PRIVATE
-    ${OpenCV_LIBS}
-    pthread
-    ${ORT_ROOT}/lib/libonnxruntime.so
-)
-
-target_link_options(dart_launcher PRIVATE -Wl,-rpath,${ORT_ROOT}/lib)
-target_compile_options(dart_launcher PRIVATE -Wall -Wextra -O2)
+target_compile_definitions(dart_launcher_debug PRIVATE DEBUG_STEP_MODE)
 
 # ── Vision camera test (no arm, no decision) ──────────────────────────────────
 add_executable(test_vision_camera

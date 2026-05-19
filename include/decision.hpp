@@ -7,6 +7,8 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
+#include <mutex>
 #include <string>
 #include <thread>
 
@@ -34,6 +36,7 @@ public:
 
     bool start();
     void stop();
+    void advance_step();
 
 private:
     enum class MoveResult {
@@ -58,6 +61,7 @@ private:
     };
 
     void loop();
+    void wait_for_step();
     const char* state_name(State s) const;
     bool sleep_interruptible(std::chrono::milliseconds duration) const;
     MoveResult wait_for_goal(std::chrono::milliseconds timeout, int monitor_zone_index);
@@ -92,6 +96,15 @@ private:
     std::thread       thread_;
     std::atomic<bool> running_{false};
     State             state_ = State::Idle;
+
+#ifdef DEBUG_STEP_MODE
+    std::atomic<bool>       step_mode_{true};
+#else
+    std::atomic<bool>       step_mode_{false};
+#endif
+    mutable std::mutex      step_mutex_;
+    std::condition_variable step_cv_;
+    bool                    step_ready_{false};
 
     std::chrono::steady_clock::time_point stable_t0_{};
     std::chrono::steady_clock::time_point stable_last_seen_t_{};
