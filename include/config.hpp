@@ -130,6 +130,13 @@ constexpr float CAM_CY             = 240.0f;   // ≈ height / 2
 constexpr float CAM_HEIGHT_M       = 0.50f;    // camera height above dart surface [m]
 constexpr float DART_REST_HEIGHT_M = 0.00f;    // dart z in world frame [m]
 
+// ── Debug: force-inject a detection at a fixed slot ──────────────────────────
+// Flip FORCE_DETECTION to true to bypass ONNX and always report a dart at the
+// configured world coordinates.  Dead-code-eliminated when false.
+constexpr bool  FORCE_DETECTION      = false;
+constexpr float FORCE_DETECTION_X    = 0.105f;  // slot_3 center x [m]
+constexpr float FORCE_DETECTION_Y    = -0.008f; // slot_3 center y [m]
+
 // ── Launch trigger MG995 servo over Linux sysfs PWM ──────────────────────────
 // High keeps the bar/latch up. Low pulls the wire and releases the spring.
 constexpr const char* TRIGGER_PWM_CHIP      = "auto";  // auto/pin18/pwm0-m1 or /sys/class/pwm/pwmchipN

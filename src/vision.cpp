@@ -242,6 +242,13 @@ void VisionModule::loop()
             }
         }
 
+        if (FORCE_DETECTION) {
+            det.valid = true;
+            det.x = FORCE_DETECTION_X;
+            det.y = FORCE_DETECTION_Y;
+            det.z = DART_REST_HEIGHT_M;
+        }
+
         buf_.write(det);
 
         double dt_total = ms(Clock::now() - t0);
