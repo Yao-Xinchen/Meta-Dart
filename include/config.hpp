@@ -142,8 +142,8 @@ constexpr float FORCE_DETECTION_Y    = -0.008f; // slot_3 center y [m]
 // High keeps the bar/latch up. Low pulls the wire and releases the spring.
 constexpr const char* TRIGGER_PWM_CHIP      = "auto";  // auto/pin18/pwm0-m1 or /sys/class/pwm/pwmchipN
 constexpr int TRIGGER_PWM_CHANNEL           = 0;
-constexpr float TRIGGER_HOLD_POS_DEG        = 100.0f;
-constexpr float TRIGGER_RELEASE_POS_DEG     = 60.0f;
+constexpr float TRIGGER_HOLD_POS_DEG        = 150.0f;
+constexpr float TRIGGER_RELEASE_POS_DEG     = 20.0f;
 constexpr float TRIGGER_SETTLE_TIME_S       = 0.25f;
 constexpr float TRIGGER_RELEASE_PULSE_S     = 0.35f;
 constexpr float TRIGGER_SAFE_RELEASE_WAIT_S = 0.50f;
